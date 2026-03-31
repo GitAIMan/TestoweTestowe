@@ -15,8 +15,8 @@ System webowy dla hoteli — zarządzanie ofertami eventowymi i agendami. Model 
 | 2 | Oferty: kreator, pickery, podsumowanie, statusy, PDF | UKOŃCZONA |
 | 3 | Umowy: tworzenie z oferty, formularz, PDF | UKOŃCZONA |
 | 4 | Agendy: kreator, bloki, tokeny, widok klienta, wybory, blokada, powiadomienia | UKOŃCZONA |
-| 5 | Finalizacja: agenda finalna, widok kuchni, podsumowania kierownika | DO ZROBIENIA |
-| 6 | Polish: tooltips, onboarding, error handling, responsywność | DO ZROBIENIA |
+| 5 | Finalizacja: agenda finalna, widok kuchni, podsumowania kierownika | UKOŃCZONA |
+| 6 | Polish: tooltips, onboarding, error handling, responsywność | UKOŃCZONA |
 
 ---
 
@@ -237,7 +237,13 @@ System webowy dla hoteli — zarządzanie ofertami eventowymi i agendami. Model 
 
 ---
 
-## FAZA 5: Finalizacja — DO ZROBIENIA
+## FAZA 5: Finalizacja — UKOŃCZONA (2026-03-31)
+
+### Co zrobione:
+- Finalizacja agendy: przycisk w /agendy/[id], walidacja wyborów, kopiowanie bloków/pakietów/wyposażenia/wyborów do nowej agendy FINALNA, blokada wstępnej
+- Widok kuchni `/kuchnia/[token]` — publiczny read-only, harmonogram dzień po dniu z wyborami klienta, wyposażenie, branding hotelu
+- Podsumowania `/podsumowania` — tylko KIEROWNIK, karty statystyk, tabela agend finalnych, filtry po datach
+- Build przechodzi bez błędów
 
 ### 5.1 Finalizacja agendy
 - Przycisk "Finalizuj agendę" (w widoku agendy)
@@ -264,7 +270,15 @@ System webowy dla hoteli — zarządzanie ofertami eventowymi i agendami. Model 
 
 ---
 
-## FAZA 6: Polish — DO ZROBIENIA
+## FAZA 6: Polish — UKOŃCZONA (2026-03-31)
+
+### Co zrobione:
+- Skeleton loaders na wszystkich tabelach (pokoje, sale, oferty, umowy, agendy) + dashboard
+- Responsywność: hamburger menu na mobile, sidebar overlay z zamykaniem, padding responsywny
+- Dashboard: podpięcie prawdziwych danych z API (oferty, umowy, agendy, zaakceptowane w tym miesiącu)
+- TooltipProvider dodany do providers
+- Komponenty: skeleton, tooltip, table-skeleton, panel-content
+- Build przechodzi bez błędów (52 route'y)
 
 - Tooltips i podpowiedzi na każdym ekranie (onboarding — żeby pracownica się nie bała)
 - Loading states (skeleton loaders)

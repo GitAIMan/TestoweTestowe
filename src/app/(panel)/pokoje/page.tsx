@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 interface Room {
   id: string;
@@ -130,7 +131,7 @@ export default function PokojePage() {
       </div>
 
       {!rooms ? (
-        <p className="text-muted-foreground">Ładowanie...</p>
+        <TableSkeleton rows={4} columns={5} />
       ) : rooms.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground">

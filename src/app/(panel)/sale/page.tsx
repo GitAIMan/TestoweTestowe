@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 interface Hall {
   id: string;
@@ -214,7 +215,7 @@ export default function SalePage() {
 
       {/* Lista sal */}
       {!halls ? (
-        <p className="text-muted-foreground">Ładowanie...</p>
+        <TableSkeleton rows={5} columns={5} />
       ) : halls.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground">

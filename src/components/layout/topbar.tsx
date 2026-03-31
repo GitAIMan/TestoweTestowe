@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
-import { LogOut, Bell } from "lucide-react";
+import { LogOut, Bell, Menu } from "lucide-react";
 
 interface NotificationItem {
   id: string;
@@ -16,7 +16,11 @@ interface NotificationItem {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-export function Topbar() {
+interface TopbarProps {
+  onMenuToggle?: () => void;
+}
+
+export function Topbar({ onMenuToggle }: TopbarProps) {
   const { data: session } = useSession();
   const { data, mutate } = useSWR<{
     notifications: NotificationItem[];
@@ -34,7 +38,17 @@ export function Topbar() {
 
   return (
     <header className="h-16 border-b bg-card flex items-center justify-between px-6">
-      <div />
+      {/* Hamburger — tylko mobile */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onMenuToggle}
+        className="md:hidden"
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+      <div className="hidden md:block" />
+
       <div className="flex items-center gap-4">
         {/* Powiadomienia */}
         <div className="relative">
@@ -53,7 +67,6 @@ export function Topbar() {
 
           {dropdownOpen && (
             <>
-              {/* Overlay do zamknięcia */}
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
@@ -104,7 +117,7 @@ export function Topbar() {
           )}
         </div>
 
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground hidden sm:inline">
           {session?.user?.name}
         </span>
         <Button

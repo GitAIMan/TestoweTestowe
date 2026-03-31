@@ -10,7 +10,9 @@ import {
   Clock,
   CheckCircle,
   Package,
+  Lock,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,8 +75,31 @@ export default function AgendaDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const { data, mutate } = useSWR<AgendaDetail>(`/api/agendas/${id}`, fetcher);
   const [generatingToken, setGeneratingToken] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+
+  async function finalizeAgenda() {
+    if (!confirm("Czy na pewno chcesz sfinalizować agendę? Ta operacja jest nieodwracalna.")) {
+      return;
+    }
+    setFinalizing(true);
+    try {
+      const res = await fetch(`/api/agendas/${id}/finalize`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Błąd finalizacji");
+      }
+      const finalAgenda = await res.json();
+      toast.success("Agenda sfinalizowana!");
+      router.push(`/agendy/${finalAgenda.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Błąd finalizacji");
+    } finally {
+      setFinalizing(false);
+    }
+  }
 
   async function generateToken(type: "KLIENT_AGENDA" | "KUCHNIA_AGENDA") {
     setGeneratingToken(true);
@@ -140,6 +165,14 @@ export default function AgendaDetailPage({
           {data.type === "WSTEPNA" ? "Wstępna" : "Finalna"}
         </Badge>
       </div>
+
+      {/* Finalizacja — tylko dla wstępnej */}
+      {data.type === "WSTEPNA" && !data.isLocked && (
+        <Button onClick={finalizeAgenda} disabled={finalizing}>
+          <Lock className="mr-1 h-4 w-4" />
+          {finalizing ? "Finalizowanie..." : "Finalizuj agendę"}
+        </Button>
+      )}
 
       {/* Linki */}
       <div className="grid gap-4 lg:grid-cols-2">

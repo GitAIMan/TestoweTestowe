@@ -283,7 +283,19 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 - Powiadomienia: dzwonek w topbar z badge, dropdown, auto-refresh 30s
 - Przycisk "Utwórz agendę" w ofercie aktywny
 
-**Następny krok:** Faza 5 — Finalizacja (agenda finalna, widok kuchni, podsumowania kierownika)
+**Faza 5: Finalizacja — UKOŃCZONA**
+- Finalizacja agendy: przycisk w `/agendy/[id]`, walidacja wyborów, kopia do agendy FINALNA
+- Widok kuchni `/kuchnia/[token]` — publiczny read-only, harmonogram z wyborami, wyposażenie, branding
+- Podsumowania `/podsumowania` — tylko KIEROWNIK, statystyki, tabela agend finalnych, filtry dat
+
+**Faza 6: Polish — UKOŃCZONA**
+- Skeleton loaders na wszystkich tabelach + dashboard
+- Responsywność: hamburger menu na mobile, sidebar overlay
+- Dashboard: prawdziwe dane z API (oferty, umowy, agendy, zaakceptowane)
+- TooltipProvider, skeleton, tooltip komponenty
+- 52 route'y, build przechodzi bez błędów
+
+**MVP KOMPLETNE — wszystkie 6 faz ukończone.**
 
 **UWAGA:** Baza danych nie jest jeszcze zmigrowana. Przed kontynuacją potrzebny PostgreSQL + `npm run db:migrate` + `npm run db:seed`.
 

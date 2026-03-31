@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import {
   Table,
   TableBody,
@@ -37,7 +38,7 @@ export default function UmowyPage() {
       <h1 className="text-2xl font-semibold">Umowy</h1>
 
       {!contracts ? (
-        <p className="text-muted-foreground">Ładowanie...</p>
+        <TableSkeleton rows={4} columns={7} />
       ) : contracts.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground">

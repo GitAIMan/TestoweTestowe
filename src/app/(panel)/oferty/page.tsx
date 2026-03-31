@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 interface Offer {
   id: string;
@@ -109,7 +110,7 @@ export default function OfertyPage() {
 
       {/* Tabela */}
       {!offers ? (
-        <p className="text-muted-foreground">Ładowanie...</p>
+        <TableSkeleton rows={5} columns={7} />
       ) : offers.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground">
