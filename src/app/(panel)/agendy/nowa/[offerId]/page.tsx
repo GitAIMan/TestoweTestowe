@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Hint } from "@/components/ui/hint";
 import {
   Dialog,
   DialogContent,
@@ -96,6 +97,7 @@ export default function NowaAgendaPage({
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [clientToken, setClientToken] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [customNotes, setCustomNotes] = useState("");
 
   // Dialog bloku
   const [blockDialog, setBlockDialog] = useState(false);
@@ -111,10 +113,27 @@ export default function NowaAgendaPage({
     equipmentList: "" ,
   });
 
-  // Utwórz agendę
-  async function createAgenda() {
+  // Utwórz agendę lub znajdź istniejącą
+  async function createOrFindAgenda() {
     setCreating(true);
     try {
+      // Najpierw sprawdź czy agenda już istnieje
+      const listRes = await fetch("/api/agendas");
+      if (listRes.ok) {
+        const agendas = await listRes.json();
+        const existing = agendas.find(
+          (a: { offerId: string; type: string }) =>
+            a.offerId === offerId && a.type === "WSTEPNA"
+        );
+        if (existing) {
+          setAgendaId(existing.id);
+          if (existing.notes) setCustomNotes(existing.notes);
+          toast.success("Agenda znaleziona — dodaj bloki czasowe");
+          return;
+        }
+      }
+
+      // Utwórz nową
       const res = await fetch("/api/agendas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,13 +153,29 @@ export default function NowaAgendaPage({
     }
   }
 
-  // Automatycznie utwórz agendę po załadowaniu oferty
+  // Automatycznie utwórz/znajdź agendę po załadowaniu oferty
   useEffect(() => {
     if (offer && !agendaId && !creating) {
-      createAgenda();
+      createOrFindAgenda();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offer]);
+
+  // Zapisz uwagi niestandardowe
+  async function saveCustomNotes() {
+    if (!agendaId) return;
+    try {
+      const res = await fetch(`/api/agendas/${agendaId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: customNotes }),
+      });
+      if (!res.ok) throw new Error("Błąd zapisu");
+      toast.success("Uwagi zapisane");
+    } catch {
+      toast.error("Nie udało się zapisać uwag");
+    }
+  }
 
   // Otwórz dialog nowego bloku
   function openBlockDialog() {
@@ -301,10 +336,12 @@ export default function NowaAgendaPage({
           <Clock className="h-4 w-4" />
           Bloki czasowe
         </h2>
-        <Button onClick={openBlockDialog} disabled={!agendaId}>
-          <Plus className="mr-1 h-4 w-4" />
-          Dodaj blok
-        </Button>
+        <Hint label="Dodaj punkt harmonogramu: godzina, sala, pakiety, uwagi.">
+          <Button onClick={openBlockDialog} disabled={!agendaId}>
+            <Plus className="mr-1 h-4 w-4" />
+            Dodaj blok
+          </Button>
+        </Hint>
       </div>
 
       {blocks.length === 0 ? (
@@ -394,6 +431,34 @@ export default function NowaAgendaPage({
         </div>
       )}
 
+      {/* Uwagi niestandardowe */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Uwagi i życzenia specjalne</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            placeholder="Wpisz dodatkowe uwagi, np. tort z napisem, dekoracje kwiatowe, DJ od 20:00, specjalne wymagania dietetyczne..."
+            rows={4}
+            value={customNotes}
+            onChange={(e) => setCustomNotes(e.target.value)}
+          />
+          {agendaId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={saveCustomNotes}
+            >
+              Zapisz uwagi
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            Te uwagi będą widoczne w agendzie i na widoku kuchni.
+          </p>
+        </CardContent>
+      </Card>
+
       <Separator />
 
       {/* Link klienta */}
@@ -416,12 +481,14 @@ export default function NowaAgendaPage({
               </Button>
             </div>
           ) : (
-            <Button
-              onClick={generateClientLink}
-              disabled={!agendaId || blocks.length === 0}
-            >
-              Wygeneruj link dla klienta
-            </Button>
+            <Hint label="Klient dostanie link bez logowania. Wybierze pozycje menu online.">
+              <Button
+                onClick={generateClientLink}
+                disabled={!agendaId || blocks.length === 0}
+              >
+                Wygeneruj link dla klienta
+              </Button>
+            </Hint>
           )}
           <p className="text-xs text-muted-foreground mt-2">
             Klient otworzy ten link bez logowania i będzie mógł wybrać pozycje
@@ -502,14 +569,18 @@ export default function NowaAgendaPage({
               />
             </div>
             <div>
-              <Label>Opis</Label>
+              <Label>Pozycje niestandardowe / uwagi</Label>
               <Textarea
                 value={blockForm.description}
                 onChange={(e) =>
                   setBlockForm({ ...blockForm, description: e.target.value })
                 }
-                rows={2}
+                rows={3}
+                placeholder={"Tort z napisem \"100 lat!\"\nDJ od 20:00\nDekoracje kwiatowe\nSpecjalne menu bezglutenowe (3 os.)"}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Wpisz dodatkowe życzenia — jedno na linię. Będą widoczne w agendzie i dla kuchni.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

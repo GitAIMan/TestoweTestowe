@@ -297,7 +297,106 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 
 **MVP KOMPLETNE — wszystkie 6 faz ukończone.**
 
-**UWAGA:** Baza danych nie jest jeszcze zmigrowana. Przed kontynuacją potrzebny PostgreSQL + `npm run db:migrate` + `npm run db:seed`.
+### Poprawki po MVP:
+- Fix: middleware Edge Runtime — rozdzielono auth na `auth.config.ts` (bez Prisma, do middleware) i `auth.ts` (z Prisma, do API routes). Naprawia błąd `node:path` w Edge Runtime.
+- Fix: build script — dodano `prisma generate` przed `next build` (wymagane na Railway)
+- Baza lokalna działa: PostgreSQL + migracja + seed OK
+- Fix: DELETE endpoint dla ofert — usuwanie oferty z kaskadowym usunięciem powiązanych danych (agendy, umowy, rezerwacje)
+- Fix: pola numeryczne — ukryte strzałki (CSS), zablokowany scroll i strzałki klawiatury (JS w providers)
+
+### Redesign wizualny (2026-03-31):
+- **Font:** Geist → Plus Jakarta Sans (latin-ext, ciepły, zaokrąglony)
+- **Paleta:** Coral-Rose primary (oklch 0.637 0.137 15), ciepłe piaskowe neutraly
+- **Tło:** kremowe, nie białe (background oklch 0.93 0.03 50, card oklch 0.97 0.015 50)
+- **Sidebar:** gradient, aktywny pasek po lewej, hover shift, user info na dole, logo z cieniem
+- **Topbar:** sticky + backdrop-blur-md + shadow
+- **Karty:** custom multi-layer shadow, hover lift (-translate-y-0.5)
+- **Tabele:** rounded container z shadow, uppercase headers, alternating rows
+- **Buttony:** shadow-md, hover lift, active press
+- **Dashboard:** pełny coral gradient banner "Dzień dobry!", kolorowe stat karty z top-bar akcentem
+- **Login:** gradient tło, duże logo z shadow, elevated card
+- **Badge:** nowe warianty success/warning/info (semantyczne kolory statusów ofert)
+- **Animacja:** slide-up 0.35s na wejściu strony
+- **Nowe tokeny:** --shadow-card, --shadow-card-hover, --shadow-elevated, --shadow-topbar
+
+### Przebudowa flow oferty (2026-03-31):
+
+**WAŻNE — nowy flow (zmiana architektury):**
+
+1. **Kreator oferty** — 5 kroków (nie 6):
+   - Klient → Wydarzenie → Sale → Pakiety → Podsumowanie
+   - Pokoje USUNIĘTE z kreatora (do dodania osobno później)
+   - Przycisk "Zapisz szkic" (nie "Zapisz ofertę")
+   - Popup `beforeunload` przy wyjściu bez zapisu
+   - Typ wydarzenia: dropdown z typów ofert (nie ręczne wpisywanie nazwy)
+   - Daty: walidacja min (dziś), "Do" nie wcześniej niż "Od"
+
+2. **Po zapisie szkicu → redirect na `/oferty/[id]/edycja`** (CENTRUM STEROWANIA):
+   - Tabela edycyjna typu Excel z pozycjami rozbitymi na dni
+   - Kolumny: NR | NAZWA | GODZ | ILOŚĆ | CENA NETTO | VAT (8%/23%) | BRUTTO
+   - Inline editing — każde pole edytowalne
+   - "+ Dodaj pozycję" per dzień — pozycje "z palca" (CUSTOM)
+   - Podsumowanie: netto, VAT, brutto
+   - **Panel akcji** — w jednej karcie, warunkowe przyciski:
+     - Zmiana statusu: Wysłana / Zaakceptowana / Odrzucona
+     - PDF oferty
+     - Utwórz umowę (po ZAAKCEPTOWANA)
+     - Oznacz umowę jako podpisaną
+     - Utwórz agendę (po podpisaniu umowy)
+     - Link klienta / Link kuchni (kopiowanie)
+
+3. **Stara strona `/oferty/[id]`** → automatyczny redirect na `/oferty/[id]/edycja`
+
+4. **Lista ofert** — kliknięcie klienta prowadzi do centrum sterowania
+
+**Nowy model bazy: `OfferItem`** (migracja `add_offer_items`):
+- Zunifikowany model dla WSZYSTKICH pozycji oferty (sale, pokoje, pakiety, custom)
+- Pola: offerId, day, date, sortOrder, name, description, timeFrom, quantity, unitPrice, vatRate, sourceType, sourceId
+- Generowany automatycznie po zapisie szkicu z OfferHall/OfferRoom/OfferPackage
+- sourceType: "HALL" / "ROOM" / "PACKAGE" / "CUSTOM"
+
+**Nowe API endpointy:**
+- `GET/POST/PUT/DELETE /api/offers/[id]/items` — CRUD pozycji oferty
+- `GET /api/offers/[id]/full` — oferta + umowa + agenda w jednym zapytaniu
+- `PUT /api/agendas/[id]` — aktualizacja notatek agendy
+
+**Zmiana flow umowa → agenda:**
+- Przycisk "Utwórz agendę" przeniesiony z oferty na stronę UMOWY (po podpisaniu)
+- Teraz dostępny też w centrum sterowania ofertą
+- Kreator agendy: nowe pole "Pozycje niestandardowe / uwagi" per blok (placeholder: tort, DJ, dekoracje)
+- Agenda: jeśli wstępna już istnieje — używa istniejącej zamiast 400
+
+**Nawigacja poprawiona:**
+- Po utworzeniu umowy → redirect na ofertę (nie na umowę)
+- Strzałka wstecz na umowie → oferta (nie lista umów)
+- Strzałka wstecz na agendzie → oferta (nie lista agend)
+
+**Tooltips/podpowiedzi na przyciskach:**
+- Komponent `<Hint>` — tooltip na hover z krótkim opisem
+- Dodane na: Nowa oferta, PDF, Utwórz umowę, Oznacz jako podpisaną, Utwórz agendę, Dodaj blok, Wygeneruj link, Finalizuj agendę, Dodaj salę, Dodaj pokój
+
+**Inne fixy:**
+- DELETE endpoint dla ofert (kaskadowe usuwanie)
+- Pola numeryczne: ukryte strzałki CSS + zablokowany scroll/keyboard JS (capture phase)
+- Pakiety na stronie oferty: ładne formatowanie (ramki, badge typ, tryb sekcji, chipsy pozycji)
+
+### Narzędzia bazodanowe:
+- `npx tsx prisma/clear.ts` — czyści całą bazę (zostawia użytkowników)
+- `npx tsx prisma/seed.ts` — wgrywa dane testowe
+
+### Konfiguracja lokalna:
+- PostgreSQL lokalnie, baza `saas_hotele`, hasło `MBT`
+- `npm run db:migrate` + `npx tsx prisma/seed.ts`
+- `npm run dev` → `http://localhost:3000`
+- 54 route'y, build przechodzi bez błędów
+
+### Git:
+- Repo: https://github.com/GitAIMan/TestoweTestowe
+- Branch `main` — produkcja
+- Branch `staging` — testowanie (praca tutaj)
+- NIGDY commit/push bez zgody użytkownika
+
+**UWAGA:** Baza danych wymaga migracji `add_offer_items`. Uruchom `npm run db:migrate` po pobraniu kodu.
 
 **Pełny plan implementacji:** patrz `PLAN.md` w katalogu projektu.
 

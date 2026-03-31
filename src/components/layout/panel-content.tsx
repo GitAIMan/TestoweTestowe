@@ -13,7 +13,7 @@ export function PanelContent({ userRole, children }: PanelContentProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-muted/40">
+    <div className="min-h-screen bg-muted">
       <Sidebar
         userRole={userRole}
         mobileOpen={mobileOpen}
@@ -21,7 +21,7 @@ export function PanelContent({ userRole, children }: PanelContentProps) {
       />
       <div className="md:pl-64">
         <Topbar onMenuToggle={() => setMobileOpen(!mobileOpen)} />
-        <main className="p-4 md:p-6">{children}</main>
+        <main className="p-4 md:p-8 max-w-7xl">{children}</main>
       </div>
     </div>
   );

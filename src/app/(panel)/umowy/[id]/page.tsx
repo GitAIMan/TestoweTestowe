@@ -3,7 +3,8 @@
 import { use } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { ArrowLeft, FileDown, CheckCircle } from "lucide-react";
+import { ArrowLeft, FileDown, CheckCircle, CalendarDays } from "lucide-react";
+import { Hint } from "@/components/ui/hint";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +96,7 @@ export default function ContractDetailPage({
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/umowy">
+          <Link href={`/oferty/${contract.offer.id}`}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -120,10 +121,22 @@ export default function ContractDetailPage({
             </Button>
           </a>
           {!contract.signedAt && (
-            <Button size="sm" onClick={markSigned}>
-              <CheckCircle className="mr-1 h-4 w-4" />
-              Oznacz jako podpisaną
-            </Button>
+            <Hint label="Klient podpisał umowę? Zatwierdź, aby odblokować tworzenie agendy.">
+              <Button size="sm" onClick={markSigned}>
+                <CheckCircle className="mr-1 h-4 w-4" />
+                Oznacz jako podpisaną
+              </Button>
+            </Hint>
+          )}
+          {contract.signedAt && (
+            <Hint label="Zaplanuj harmonogram wydarzenia: bloki czasowe, pakiety, wyposażenie.">
+              <Link href={`/agendy/nowa/${contract.offer.id}`}>
+                <Button size="sm">
+                  <CalendarDays className="mr-1 h-4 w-4" />
+                  Utwórz agendę
+                </Button>
+              </Link>
+            </Hint>
           )}
         </div>
       </div>

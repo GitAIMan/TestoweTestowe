@@ -14,6 +14,13 @@ interface DashboardData {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+const CARD_COLORS = [
+  { bg: "bg-[oklch(0.637_0.137_15/0.15)]", text: "text-[oklch(0.637_0.137_15)]", bar: "oklch(0.637 0.137 15)" },
+  { bg: "bg-[oklch(0.65_0.14_155/0.15)]", text: "text-[oklch(0.65_0.14_155)]", bar: "oklch(0.65 0.14 155)" },
+  { bg: "bg-[oklch(0.62_0.16_280/0.15)]", text: "text-[oklch(0.62_0.16_280)]", bar: "oklch(0.62 0.16 280)" },
+  { bg: "bg-[oklch(0.7_0.13_80/0.15)]", text: "text-[oklch(0.7_0.13_80)]", bar: "oklch(0.7 0.13 80)" },
+];
+
 export default function DashboardPage() {
   const { data } = useSWR<DashboardData>("/api/dashboard", fetcher);
 
@@ -46,31 +53,45 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      {/* Greeting banner */}
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/85 to-primary/70 p-6 shadow-lg shadow-primary/20">
+        <h1 className="text-2xl font-bold tracking-tight text-primary-foreground">Dzień dobry!</h1>
+        <p className="text-primary-foreground/80 mt-1">Co dzisiaj robimy?</p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card) => (
-          <Card key={card.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {card.title}
-              </CardTitle>
-              <card.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {data ? (
-                <>
-                  <div className="text-2xl font-bold">{card.value}</div>
-                  <p className="text-xs text-muted-foreground">{card.desc}</p>
-                </>
-              ) : (
-                <>
-                  <Skeleton className="h-8 w-16 mb-1" />
-                  <Skeleton className="h-3 w-24" />
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+        {cards.map((card, i) => {
+          const color = CARD_COLORS[i];
+          return (
+            <Card key={card.title} className="relative overflow-hidden">
+              <div
+                className="absolute top-0 inset-x-0 h-1 rounded-b-full"
+                style={{ backgroundColor: color.bar }}
+              />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {card.title}
+                </CardTitle>
+                <div className={`rounded-lg p-2 ${color.bg}`}>
+                  <card.icon className={`h-4 w-4 ${color.text}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {data ? (
+                  <>
+                    <div className="text-3xl font-bold tracking-tight">{card.value}</div>
+                    <p className="text-xs text-muted-foreground mt-1">{card.desc}</p>
+                  </>
+                ) : (
+                  <>
+                    <Skeleton className="h-9 w-16 mb-1" />
+                    <Skeleton className="h-3 w-24" />
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

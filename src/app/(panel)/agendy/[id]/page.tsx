@@ -12,6 +12,7 @@ import {
   Package,
   Lock,
 } from "lucide-react";
+import { Hint } from "@/components/ui/hint";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ interface AgendaDetail {
   notes: string | null;
   createdAt: string;
   offer: {
+    id: string;
     clientName: string;
     eventName: string | null;
     eventDateFrom: string;
@@ -146,7 +148,7 @@ export default function AgendaDetailPage({
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link href="/agendy">
+        <Link href={`/oferty/${data.offer.id}`}>
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -168,10 +170,12 @@ export default function AgendaDetailPage({
 
       {/* Finalizacja — tylko dla wstępnej */}
       {data.type === "WSTEPNA" && !data.isLocked && (
-        <Button onClick={finalizeAgenda} disabled={finalizing}>
-          <Lock className="mr-1 h-4 w-4" />
-          {finalizing ? "Finalizowanie..." : "Finalizuj agendę"}
-        </Button>
+        <Hint label="Zamknij wybory klienta i utwórz wersję finalną dla kuchni.">
+          <Button onClick={finalizeAgenda} disabled={finalizing}>
+            <Lock className="mr-1 h-4 w-4" />
+            {finalizing ? "Finalizowanie..." : "Finalizuj agendę"}
+          </Button>
+        </Hint>
       )}
 
       {/* Linki */}

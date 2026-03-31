@@ -228,6 +228,7 @@ model Offer {
   offerRooms       OfferRoom[]
   offerHalls       OfferHall[]
   offerPackages    OfferPackage[]
+  offerItems       OfferItem[]
   hallReservations HallReservation[]
   contracts        Contract[]
   agendas          Agenda[]
@@ -277,6 +278,26 @@ model OfferPackage {
 
   @@unique([offerId, packageId])
   @@index([offerId])
+}
+
+model OfferItem {
+  id          String    @id @default(cuid())
+  offerId     String
+  offer       Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  day         Int       @default(1)
+  date        DateTime? @db.Date
+  sortOrder   Int       @default(0)
+  name        String
+  description String?
+  timeFrom    String?
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  vatRate     Int       @default(23)
+  sourceType  String?
+  sourceId    String?
+
+  @@index([offerId])
+  @@index([offerId, day, sortOrder])
 }
 
 // ==================== UMOWA ====================

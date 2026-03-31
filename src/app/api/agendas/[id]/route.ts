@@ -67,3 +67,23 @@ export async function GET(
 
   return NextResponse.json({ ...agenda, selections });
 }
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Brak autoryzacji" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const body = await req.json();
+
+  const agenda = await prisma.agenda.update({
+    where: { id },
+    data: { notes: body.notes ?? null },
+  });
+
+  return NextResponse.json(agenda);
+}

@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { Hint } from "@/components/ui/hint";
 
 interface Offer {
   id: string;
@@ -39,12 +40,12 @@ interface Offer {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" }> = {
   ROBOCZA: { label: "Robocza", variant: "secondary" },
-  WYSLANA: { label: "Wysłana", variant: "default" },
-  ZAAKCEPTOWANA: { label: "Zaakceptowana", variant: "default" },
+  WYSLANA: { label: "Wysłana", variant: "info" },
+  ZAAKCEPTOWANA: { label: "Zaakceptowana", variant: "success" },
   ODRZUCONA: { label: "Odrzucona", variant: "destructive" },
-  WYGASLA: { label: "Wygasła", variant: "outline" },
+  WYGASLA: { label: "Wygasła", variant: "warning" },
 };
 
 export default function OfertyPage() {
@@ -70,12 +71,14 @@ export default function OfertyPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Oferty</h1>
-        <Link href="/oferty/nowa">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nowa oferta
-          </Button>
-        </Link>
+        <Hint label="Stwórz ofertę dla klienta. 6 kroków: dane, wydarzenie, sale, pokoje, pakiety, podsumowanie.">
+          <Link href="/oferty/nowa">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nowa oferta
+            </Button>
+          </Link>
+        </Hint>
       </div>
 
       {/* Filtry */}
@@ -138,7 +141,7 @@ export default function OfertyPage() {
                   <TableRow key={offer.id}>
                     <TableCell>
                       <Link
-                        href={`/oferty/${offer.id}`}
+                        href={`/oferty/${offer.id}/edycja`}
                         className="font-medium text-primary hover:underline"
                       >
                         {offer.clientName}

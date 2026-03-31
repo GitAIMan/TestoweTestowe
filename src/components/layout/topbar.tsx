@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { LogOut, Bell, Menu } from "lucide-react";
@@ -21,7 +21,6 @@ interface TopbarProps {
 }
 
 export function Topbar({ onMenuToggle }: TopbarProps) {
-  const { data: session } = useSession();
   const { data, mutate } = useSWR<{
     notifications: NotificationItem[];
     unreadCount: number;
@@ -37,7 +36,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
   const unread = data?.unreadCount || 0;
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6">
+    <header className="sticky top-0 z-30 h-14 border-b border-border/40 bg-card/85 backdrop-blur-md shadow-[var(--shadow-topbar)] flex items-center justify-between px-6">
       {/* Hamburger — tylko mobile */}
       <Button
         variant="ghost"
@@ -49,7 +48,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
       </Button>
       <div className="hidden md:block" />
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {/* Powiadomienia */}
         <div className="relative">
           <Button
@@ -59,7 +58,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           >
             <Bell className="h-4 w-4" />
             {unread > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
                 {unread > 9 ? "9+" : unread}
               </span>
             )}
@@ -71,9 +70,9 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute right-0 mt-2 w-80 bg-card border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+              <div className="absolute right-0 mt-2 w-80 bg-card border rounded-xl shadow-lg z-50 max-h-96 overflow-y-auto">
                 <div className="p-3 border-b">
-                  <span className="text-sm font-medium">Powiadomienia</span>
+                  <span className="text-sm font-semibold">Powiadomienia</span>
                 </div>
                 {!data || data.notifications.length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
@@ -86,8 +85,8 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
                       onClick={() => {
                         if (!n.isRead) markRead(n.id);
                       }}
-                      className={`w-full text-left px-3 py-2 border-b last:border-0 hover:bg-muted/50 transition-colors ${
-                        !n.isRead ? "bg-primary/5" : ""
+                      className={`w-full text-left px-3 py-2.5 border-b last:border-0 hover:bg-accent/40 transition-colors ${
+                        !n.isRead ? "bg-accent/20" : ""
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -117,9 +116,6 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           )}
         </div>
 
-        <span className="text-sm text-muted-foreground hidden sm:inline">
-          {session?.user?.name}
-        </span>
         <Button
           variant="ghost"
           size="icon"

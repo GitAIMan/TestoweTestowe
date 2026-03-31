@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Save } from "lucide-react";
@@ -14,7 +14,6 @@ import {
 import { StepClient } from "@/components/offers/step-client";
 import { StepEvent } from "@/components/offers/step-event";
 import { StepHalls } from "@/components/offers/step-halls";
-import { StepRooms } from "@/components/offers/step-rooms";
 import { StepPackages } from "@/components/offers/step-packages";
 import { StepSummary } from "@/components/offers/step-summary";
 
@@ -23,6 +22,17 @@ export default function NowaOfertaPage() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<OfferFormData>(INITIAL_FORM_DATA);
   const [saving, setSaving] = useState(false);
+
+  // Popup przy wyjściu bez zapisu
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (data.clientName || step > 0) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [data.clientName, step]);
 
   function updateData(partial: Partial<OfferFormData>) {
     setData((prev) => ({ ...prev, ...partial }));
@@ -102,8 +112,8 @@ export default function NowaOfertaPage() {
       }
 
       const offer = await res.json();
-      toast.success("Oferta utworzona!");
-      router.push(`/oferty/${offer.id}`);
+      toast.success("Szkic zapisany! Przejdź do edycji pozycji.");
+      router.push(`/oferty/${offer.id}/edycja`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Błąd zapisu");
     } finally {
@@ -147,9 +157,8 @@ export default function NowaOfertaPage() {
           {step === 0 && <StepClient data={data} onChange={updateData} />}
           {step === 1 && <StepEvent data={data} onChange={updateData} />}
           {step === 2 && <StepHalls data={data} onChange={updateData} />}
-          {step === 3 && <StepRooms data={data} onChange={updateData} />}
-          {step === 4 && <StepPackages data={data} onChange={updateData} />}
-          {step === 5 && <StepSummary data={data} onChange={updateData} />}
+          {step === 3 && <StepPackages data={data} onChange={updateData} />}
+          {step === 4 && <StepSummary data={data} onChange={updateData} />}
         </CardContent>
       </Card>
 
@@ -168,7 +177,7 @@ export default function NowaOfertaPage() {
         ) : (
           <Button onClick={handleSave} disabled={saving}>
             <Save className="mr-1 h-4 w-4" />
-            {saving ? "Zapisywanie..." : "Zapisz ofertę"}
+            {saving ? "Zapisywanie..." : "Zapisz szkic"}
           </Button>
         )}
       </div>

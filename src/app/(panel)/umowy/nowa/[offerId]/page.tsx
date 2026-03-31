@@ -85,7 +85,7 @@ export default function NowaUmowaPage({
 
       const contract = await res.json();
       toast.success("Umowa utworzona!");
-      router.push(`/umowy/${contract.id}`);
+      router.push(`/oferty/${offerId}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Błąd zapisu");
     } finally {

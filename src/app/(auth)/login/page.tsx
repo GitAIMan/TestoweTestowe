@@ -37,10 +37,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-accent/40 px-4">
+      <Card className="w-full max-w-md shadow-[var(--shadow-elevated)]">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Logowanie</CardTitle>
+          <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25 flex items-center justify-center">
+            <span className="text-xl font-bold text-primary-foreground">H</span>
+          </div>
+          <CardTitle className="text-2xl font-bold tracking-tight">Logowanie</CardTitle>
           <p className="text-muted-foreground text-sm">
             Zaloguj się do panelu zarządzania
           </p>

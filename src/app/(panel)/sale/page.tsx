@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { Hint } from "@/components/ui/hint";
 
 interface Hall {
   id: string;
@@ -158,10 +159,12 @@ export default function SalePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Sale</h1>
-        <Button onClick={openAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          Dodaj salę
-        </Button>
+        <Hint label="Dodaj nową salę konferencyjną lub bankietową z ceną i pojemnością.">
+          <Button onClick={openAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            Dodaj salę
+          </Button>
+        </Hint>
       </div>
 
       {/* Sprawdzanie dostępności */}

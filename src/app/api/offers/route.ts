@@ -184,6 +184,80 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Generuj OfferItems z pozycji oferty
+    const eventFrom = new Date(data.eventDateFrom);
+    const eventTo = new Date(data.eventDateTo);
+    const days: Date[] = [];
+    for (let d = new Date(eventFrom); d <= eventTo; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d));
+    }
+
+    let sortCounter = 0;
+
+    // Sale → OfferItems
+    for (const hall of data.halls) {
+      const hallDate = new Date(hall.date);
+      const dayIndex = days.findIndex(
+        (d) => d.toISOString().split("T")[0] === hallDate.toISOString().split("T")[0]
+      );
+      const hallInfo = await tx.hall.findUnique({ where: { id: hall.hallId } });
+      await tx.offerItem.create({
+        data: {
+          offerId: newOffer.id,
+          day: dayIndex + 1,
+          date: hallDate,
+          sortOrder: sortCounter++,
+          name: `Wynajem sali: ${hallInfo?.name || "Sala"}`,
+          quantity: 1,
+          unitPrice: hall.pricePerDay,
+          vatRate: 23,
+          sourceType: "HALL",
+          sourceId: hall.hallId,
+        },
+      });
+    }
+
+    // Pokoje → OfferItems (dzień 1)
+    for (const room of data.rooms) {
+      const roomInfo = await tx.room.findUnique({ where: { id: room.roomId } });
+      await tx.offerItem.create({
+        data: {
+          offerId: newOffer.id,
+          day: 1,
+          date: eventFrom,
+          sortOrder: sortCounter++,
+          name: `Nocleg: ${roomInfo?.name || "Pokój"} (${room.nights} nocy)`,
+          quantity: room.quantity,
+          unitPrice: new Decimal(room.pricePerNight).mul(room.nights),
+          vatRate: 8,
+          sourceType: "ROOM",
+          sourceId: room.roomId,
+        },
+      });
+    }
+
+    // Pakiety → OfferItems (dzień 1)
+    for (const pkg of data.packages) {
+      const pkgInfo = await tx.package.findUnique({
+        where: { id: pkg.packageId },
+        include: { offerType: { select: { name: true } } },
+      });
+      await tx.offerItem.create({
+        data: {
+          offerId: newOffer.id,
+          day: 1,
+          date: eventFrom,
+          sortOrder: sortCounter++,
+          name: `${pkgInfo?.name || "Pakiet"} (${pkgInfo?.offerType?.name || ""})`,
+          quantity: data.adultsCount + data.childrenCount,
+          unitPrice: pkg.priceSnapshot || "0",
+          vatRate: 8,
+          sourceType: "PACKAGE",
+          sourceId: pkg.packageId,
+        },
+      });
+    }
+
     return newOffer;
   });
 

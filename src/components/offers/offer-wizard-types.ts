@@ -66,7 +66,6 @@ export const STEP_LABELS = [
   "Klient",
   "Wydarzenie",
   "Sale",
-  "Pokoje",
   "Pakiety",
   "Podsumowanie",
 ];

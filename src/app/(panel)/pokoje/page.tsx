@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { Hint } from "@/components/ui/hint";
 
 interface Room {
   id: string;
@@ -124,10 +125,12 @@ export default function PokojePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Pokoje</h1>
-        <Button onClick={openAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          Dodaj pokój
-        </Button>
+        <Hint label="Dodaj typ pokoju z ceną za noc. Np. Standard 2-os., Apartament.">
+          <Button onClick={openAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            Dodaj pokój
+          </Button>
+        </Hint>
       </div>
 
       {!rooms ? (
