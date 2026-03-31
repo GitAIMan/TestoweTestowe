@@ -1,0 +1,178 @@
+"use client";
+
+import { useState } from "react";
+import useSWR from "swr";
+import Link from "next/link";
+import { Plus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Offer {
+  id: string;
+  clientName: string;
+  clientCompany: string | null;
+  eventName: string | null;
+  eventDateFrom: string;
+  eventDateTo: string;
+  totalPrice: string;
+  status: string;
+  createdAt: string;
+  createdBy: { firstName: string; lastName: string };
+}
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  ROBOCZA: { label: "Robocza", variant: "secondary" },
+  WYSLANA: { label: "Wysłana", variant: "default" },
+  ZAAKCEPTOWANA: { label: "Zaakceptowana", variant: "default" },
+  ODRZUCONA: { label: "Odrzucona", variant: "destructive" },
+  WYGASLA: { label: "Wygasła", variant: "outline" },
+};
+
+export default function OfertyPage() {
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+
+  const params = new URLSearchParams();
+  if (statusFilter !== "all") params.set("status", statusFilter);
+  if (searchQuery) params.set("search", searchQuery);
+  const queryString = params.toString();
+
+  const { data: offers } = useSWR<Offer[]>(
+    `/api/offers${queryString ? `?${queryString}` : ""}`,
+    fetcher
+  );
+
+  function handleSearch() {
+    setSearchQuery(searchInput);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Oferty</h1>
+        <Link href="/oferty/nowa">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Nowa oferta
+          </Button>
+        </Link>
+      </div>
+
+      {/* Filtry */}
+      <div className="flex gap-3 items-end">
+        <div className="flex-1 max-w-xs">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Szukaj po nazwie klienta..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+            <Button variant="outline" onClick={handleSearch}>
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "all")}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie</SelectItem>
+            <SelectItem value="ROBOCZA">Robocze</SelectItem>
+            <SelectItem value="WYSLANA">Wysłane</SelectItem>
+            <SelectItem value="ZAAKCEPTOWANA">Zaakceptowane</SelectItem>
+            <SelectItem value="ODRZUCONA">Odrzucone</SelectItem>
+            <SelectItem value="WYGASLA">Wygasłe</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Tabela */}
+      {!offers ? (
+        <p className="text-muted-foreground">Ładowanie...</p>
+      ) : offers.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <p className="text-muted-foreground">
+            Brak ofert — utwórz pierwszą ofertę, klikając przycisk powyżej.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Klient</TableHead>
+                <TableHead>Wydarzenie</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Kwota</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Utworzył</TableHead>
+                <TableHead>Data utworzenia</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {offers.map((offer) => {
+                const cfg = STATUS_CONFIG[offer.status] || STATUS_CONFIG.ROBOCZA;
+                return (
+                  <TableRow key={offer.id}>
+                    <TableCell>
+                      <Link
+                        href={`/oferty/${offer.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {offer.clientName}
+                      </Link>
+                      {offer.clientCompany && (
+                        <div className="text-xs text-muted-foreground">
+                          {offer.clientCompany}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>{offer.eventName || "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(offer.eventDateFrom).toLocaleDateString("pl-PL")}
+                      {" — "}
+                      {new Date(offer.eventDateTo).toLocaleDateString("pl-PL")}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {Number(offer.totalPrice).toFixed(2)} zł
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {offer.createdBy.firstName} {offer.createdBy.lastName}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(offer.createdAt).toLocaleDateString("pl-PL")}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
