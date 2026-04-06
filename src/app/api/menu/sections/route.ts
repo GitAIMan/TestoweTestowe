@@ -9,6 +9,7 @@ const sectionSchema = z.object({
   selectionMode: z.enum(["ALL_INCLUDED", "CHOOSE_X_FROM_Y"]),
   selectionCount: z.number().int().min(1).nullable().optional(),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/).nullable().optional(),
+  vatRate: z.number().int().refine(v => v === 8 || v === 23).nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { packageId, name, selectionMode, selectionCount, price } = parsed.data;
+  const { packageId, name, selectionMode, selectionCount, price, vatRate } = parsed.data;
 
   if (selectionMode === "CHOOSE_X_FROM_Y" && !selectionCount) {
     return NextResponse.json(
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
       selectionMode,
       selectionCount: selectionMode === "CHOOSE_X_FROM_Y" ? selectionCount : null,
       price: price || null,
+      vatRate: vatRate ?? null,
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
     },
   });

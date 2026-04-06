@@ -21,7 +21,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Hint } from "@/components/ui/hint";
 import {
   Dialog,
   DialogContent,
@@ -336,12 +335,10 @@ export default function NowaAgendaPage({
           <Clock className="h-4 w-4" />
           Bloki czasowe
         </h2>
-        <Hint label="Dodaj punkt harmonogramu: godzina, sala, pakiety, uwagi.">
-          <Button onClick={openBlockDialog} disabled={!agendaId}>
-            <Plus className="mr-1 h-4 w-4" />
-            Dodaj blok
-          </Button>
-        </Hint>
+        <Button onClick={openBlockDialog} disabled={!agendaId}>
+          <Plus className="mr-1 h-4 w-4" />
+          Dodaj blok
+        </Button>
       </div>
 
       {blocks.length === 0 ? (
@@ -481,14 +478,12 @@ export default function NowaAgendaPage({
               </Button>
             </div>
           ) : (
-            <Hint label="Klient dostanie link bez logowania. Wybierze pozycje menu online.">
-              <Button
-                onClick={generateClientLink}
-                disabled={!agendaId || blocks.length === 0}
-              >
-                Wygeneruj link dla klienta
-              </Button>
-            </Hint>
+            <Button
+              onClick={generateClientLink}
+              disabled={!agendaId || blocks.length === 0}
+            >
+              Wygeneruj link dla klienta
+            </Button>
           )}
           <p className="text-xs text-muted-foreground mt-2">
             Klient otworzy ten link bez logowania i będzie mógł wybrać pozycje

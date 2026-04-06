@@ -3,8 +3,8 @@
 import { use } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { ArrowLeft, FileDown, CheckCircle, CalendarDays } from "lucide-react";
-import { Hint } from "@/components/ui/hint";
+import { ArrowLeft, FileDown, CheckCircle, CalendarDays, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,10 +65,24 @@ export default function ContractDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const { data: contract, mutate } = useSWR<ContractDetail>(
     `/api/contracts/${id}`,
     fetcher
   );
+
+  async function deleteContract() {
+    if (!confirm("Czy na pewno chcesz usunąć tę umowę? Ta operacja jest nieodwracalna.")) return;
+    try {
+      const res = await fetch(`/api/contracts/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Błąd usuwania");
+      toast.success("Umowa usunięta");
+      router.push("/umowy");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nie udało się usunąć umowy");
+    }
+  }
 
   async function markSigned() {
     try {
@@ -121,23 +135,23 @@ export default function ContractDetailPage({
             </Button>
           </a>
           {!contract.signedAt && (
-            <Hint label="Klient podpisał umowę? Zatwierdź, aby odblokować tworzenie agendy.">
-              <Button size="sm" onClick={markSigned}>
-                <CheckCircle className="mr-1 h-4 w-4" />
-                Oznacz jako podpisaną
-              </Button>
-            </Hint>
+            <Button size="sm" onClick={markSigned}>
+              <CheckCircle className="mr-1 h-4 w-4" />
+              Oznacz jako podpisaną
+            </Button>
           )}
           {contract.signedAt && (
-            <Hint label="Zaplanuj harmonogram wydarzenia: bloki czasowe, pakiety, wyposażenie.">
-              <Link href={`/agendy/nowa/${contract.offer.id}`}>
-                <Button size="sm">
-                  <CalendarDays className="mr-1 h-4 w-4" />
-                  Utwórz agendę
-                </Button>
-              </Link>
-            </Hint>
+            <Link href={`/agendy/nowa/${contract.offer.id}`}>
+              <Button size="sm">
+                <CalendarDays className="mr-1 h-4 w-4" />
+                Utwórz agendę
+              </Button>
+            </Link>
           )}
+          <Button size="sm" variant="destructive" onClick={deleteContract}>
+            <Trash2 className="mr-1 h-4 w-4" />
+            Usuń umowę
+          </Button>
         </div>
       </div>
 

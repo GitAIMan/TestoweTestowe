@@ -2,6 +2,9 @@
 
 import useSWR from "swr";
 import Link from "next/link";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import {
@@ -31,7 +34,22 @@ interface Agenda {
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function AgendyPage() {
-  const { data: agendas } = useSWR<Agenda[]>("/api/agendas", fetcher);
+  const { data: agendas, mutate } = useSWR<Agenda[]>("/api/agendas", fetcher);
+
+  async function deleteAgenda(id: string) {
+    if (!confirm("Czy na pewno chcesz usunąć tę agendę? Linki klienta i kuchni przestaną działać.")) return;
+    try {
+      const res = await fetch(`/api/agendas/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Błąd usuwania");
+      }
+      toast.success("Agenda usunięta");
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nie udało się usunąć agendy");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -57,6 +75,7 @@ export default function AgendyPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Utworzył</TableHead>
                 <TableHead>Data utworzenia</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -91,6 +110,16 @@ export default function AgendyPage() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(a.createdAt).toLocaleDateString("pl-PL")}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => deleteAgenda(a.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

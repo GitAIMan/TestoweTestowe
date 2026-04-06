@@ -28,7 +28,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e5e7eb",
   },
   label: { color: "#666" },
-  value: {},
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -57,13 +56,42 @@ const styles = StyleSheet.create({
     borderTopColor: "#e5e7eb",
     paddingTop: 8,
   },
-  itemRow: {
+  tableHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 2,
-    paddingLeft: 8,
+    backgroundColor: "#f3f4f6",
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#d1d5db",
   },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#e5e7eb",
+  },
+  colNr: { width: 20 },
+  colName: { flex: 1 },
+  colQty: { width: 30, textAlign: "right" },
+  colPersons: { width: 40, textAlign: "right" },
+  colPrice: { width: 60, textAlign: "right" },
+  colVat: { width: 30, textAlign: "right" },
+  colBrutto: { width: 65, textAlign: "right" },
+  thText: { fontSize: 8, fontWeight: "bold", color: "#6b7280", textTransform: "uppercase" },
 });
+
+interface OfferItemPdf {
+  name: string;
+  quantity: number;
+  unitPrice: string;
+  vatRate: number;
+  sourceType: string | null;
+  day: number;
+  date: string | null;
+  timeFrom: string | null;
+  timeTo: string | null;
+}
 
 interface OfferPdfProps {
   hotel: {
@@ -89,35 +117,36 @@ interface OfferPdfProps {
     totalPrice: string;
     notes: string | null;
     createdAt: string;
-    offerRooms: Array<{
-      quantity: number;
-      nights: number;
-      pricePerNight: string;
-      room: { name: string; type: string };
-    }>;
-    offerHalls: Array<{
-      date: string;
-      pricePerDay: string;
-      hall: { name: string; capacity: number };
-    }>;
-    offerPackages: Array<{
-      priceSnapshot: string | null;
-      package: {
-        name: string;
-        offerType: { name: string };
-        sections: Array<{
-          name: string;
-          items: Array<{ name: string }>;
-        }>;
-      };
-    }>;
   };
+  items: OfferItemPdf[];
 }
 
-export function OfferPdf({ hotel, offer }: OfferPdfProps) {
+export function OfferPdf({ hotel, offer, items }: OfferPdfProps) {
   const dateFrom = new Date(offer.eventDateFrom).toLocaleDateString("pl-PL");
   const dateTo = new Date(offer.eventDateTo).toLocaleDateString("pl-PL");
   const createdDate = new Date(offer.createdAt).toLocaleDateString("pl-PL");
+  const personCount = offer.adultsCount + offer.childrenCount;
+
+  // Group items by day
+  const dayMap = new Map<number, { date: string | null; items: OfferItemPdf[] }>();
+  for (const item of items) {
+    if (!dayMap.has(item.day)) {
+      dayMap.set(item.day, { date: item.date, items: [] });
+    }
+    dayMap.get(item.day)!.items.push(item);
+  }
+  const days = Array.from(dayMap.entries()).sort(([a], [b]) => a - b);
+
+  // Totals
+  let totalNetto = 0;
+  let totalVat = 0;
+  for (const item of items) {
+    const mul = item.sourceType === "PACKAGE" ? personCount : 1;
+    const netto = Number(item.unitPrice) * item.quantity * mul;
+    totalNetto += netto;
+    totalVat += netto * (item.vatRate / 100);
+  }
+  const totalBrutto = totalNetto + totalVat;
 
   return (
     <Document>
@@ -154,7 +183,7 @@ export function OfferPdf({ hotel, offer }: OfferPdfProps) {
           <Text>DANE KLIENTA</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Imię i nazwisko</Text>
+          <Text style={styles.label}>Imie i nazwisko</Text>
           <Text>{offer.clientName}</Text>
         </View>
         {offer.clientCompany && (
@@ -182,9 +211,7 @@ export function OfferPdf({ hotel, offer }: OfferPdfProps) {
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Data</Text>
-          <Text>
-            {dateFrom} — {dateTo}
-          </Text>
+          <Text>{dateFrom} — {dateTo}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Osoby</Text>
@@ -194,79 +221,71 @@ export function OfferPdf({ hotel, offer }: OfferPdfProps) {
           </Text>
         </View>
 
-        {/* Sale */}
-        {offer.offerHalls.length > 0 && (
-          <>
-            <View style={styles.sectionTitle}>
-              <Text>SALE</Text>
-            </View>
-            {offer.offerHalls.map((h, i) => (
-              <View key={i} style={styles.row}>
-                <Text>
-                  {h.hall.name} ({h.hall.capacity} os.) —{" "}
-                  {new Date(h.date).toLocaleDateString("pl-PL")}
-                </Text>
-                <Text>{Number(h.pricePerDay).toFixed(2)} zl</Text>
-              </View>
-            ))}
-          </>
-        )}
+        {/* Pozycje per dzień */}
+        {days.map(([dayNum, dayData]) => {
+          const dayLabel = dayData.date
+            ? new Date(dayData.date).toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" })
+            : `Dzien ${dayNum}`;
 
-        {/* Pokoje */}
-        {offer.offerRooms.length > 0 && (
-          <>
-            <View style={styles.sectionTitle}>
-              <Text>POKOJE</Text>
-            </View>
-            {offer.offerRooms.map((r, i) => (
-              <View key={i} style={styles.row}>
-                <Text>
-                  {r.room.name} ({r.room.type}) — {r.quantity} szt. x{" "}
-                  {r.nights} nocy
-                </Text>
-                <Text>
-                  {(Number(r.pricePerNight) * r.quantity * r.nights).toFixed(2)}{" "}
-                  zl
-                </Text>
+          return (
+            <View key={dayNum} style={{ marginTop: 10 }}>
+              <View style={styles.sectionTitle}>
+                <Text>DZIEN {dayNum} — {dayLabel}</Text>
               </View>
-            ))}
-          </>
-        )}
 
-        {/* Pakiety */}
-        {offer.offerPackages.length > 0 && (
-          <>
-            <View style={styles.sectionTitle}>
-              <Text>PAKIETY CATERINGOWE</Text>
-            </View>
-            {offer.offerPackages.map((p, i) => (
-              <View key={i} style={{ marginBottom: 6 }}>
-                <View style={styles.row}>
-                  <Text style={{ fontWeight: "bold" }}>
-                    {p.package.name} ({p.package.offerType.name})
-                  </Text>
-                  {p.priceSnapshot && (
-                    <Text>{Number(p.priceSnapshot).toFixed(2)} zl</Text>
-                  )}
-                </View>
-                {p.package.sections.map((sec, j) => (
-                  <View key={j} style={styles.itemRow}>
-                    <Text style={{ color: "#666" }}>
-                      {sec.name}: {sec.items.map((it) => it.name).join(", ")}
+              {/* Nagłówek tabeli */}
+              <View style={styles.tableHeader}>
+                <Text style={[styles.colNr, styles.thText]}>NR</Text>
+                <Text style={[styles.colName, styles.thText]}>NAZWA</Text>
+                <Text style={[styles.colQty, styles.thText]}>IL.</Text>
+                <Text style={[styles.colPersons, styles.thText]}>OSOBY</Text>
+                <Text style={[styles.colPrice, styles.thText]}>CENA/JM</Text>
+                <Text style={[styles.colVat, styles.thText]}>VAT</Text>
+                <Text style={[styles.colBrutto, styles.thText]}>BRUTTO</Text>
+              </View>
+
+              {/* Wiersze */}
+              {dayData.items.map((item, idx) => {
+                const isPackage = item.sourceType === "PACKAGE";
+                const mul = isPackage ? personCount : 1;
+                const netto = Number(item.unitPrice) * item.quantity * mul;
+                const brutto = netto * (1 + item.vatRate / 100);
+                const timeStr = item.timeFrom ? `${item.timeFrom}${item.timeTo ? `-${item.timeTo}` : ""}` : "";
+                const nameStr = timeStr ? `${item.name} (${timeStr})` : item.name;
+
+                return (
+                  <View key={idx} style={styles.tableRow}>
+                    <Text style={styles.colNr}>{idx + 1}</Text>
+                    <Text style={styles.colName}>
+                      {nameStr}
+                      {isPackage ? " [/os]" : ""}
                     </Text>
+                    <Text style={styles.colQty}>{item.quantity}</Text>
+                    <Text style={styles.colPersons}>{isPackage ? personCount : "—"}</Text>
+                    <Text style={styles.colPrice}>{Number(item.unitPrice).toFixed(2)}</Text>
+                    <Text style={styles.colVat}>{item.vatRate}%</Text>
+                    <Text style={styles.colBrutto}>{brutto.toFixed(2)}</Text>
                   </View>
-                ))}
-              </View>
-            ))}
-          </>
-        )}
+                );
+              })}
+            </View>
+          );
+        })}
 
-        {/* TOTAL */}
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>RAZEM</Text>
-          <Text style={styles.totalValue}>
-            {Number(offer.totalPrice).toFixed(2)} zl
-          </Text>
+        {/* Podsumowanie */}
+        <View style={{ marginTop: 12 }}>
+          <View style={styles.row}>
+            <Text style={styles.label}>Suma netto</Text>
+            <Text>{totalNetto.toFixed(2)} zl</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>VAT</Text>
+            <Text>{totalVat.toFixed(2)} zl</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>RAZEM BRUTTO</Text>
+            <Text style={styles.totalValue}>{totalBrutto.toFixed(2)} zl</Text>
+          </View>
         </View>
 
         {/* Notatki */}

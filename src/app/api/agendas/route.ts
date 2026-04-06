@@ -8,13 +8,16 @@ const createAgendaSchema = z.object({
   notes: z.string().optional().default(""),
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Brak autoryzacji" }, { status: 401 });
   }
 
+  const offerId = new URL(req.url).searchParams.get("offerId");
+
   const agendas = await prisma.agenda.findMany({
+    where: offerId ? { offerId } : undefined,
     orderBy: { createdAt: "desc" },
     include: {
       offer: {

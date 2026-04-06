@@ -1,9 +1,11 @@
 "use client";
 
 import useSWR from "swr";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, ScrollText, CalendarDays, CheckCircle } from "lucide-react";
+import { FileText, ScrollText, CalendarDays, CheckCircle, Plus } from "lucide-react";
 
 interface DashboardData {
   totalOffers: number;
@@ -55,8 +57,18 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Greeting banner */}
       <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/85 to-primary/70 p-6 shadow-lg shadow-primary/20">
-        <h1 className="text-2xl font-bold tracking-tight text-primary-foreground">Dzień dobry!</h1>
-        <p className="text-primary-foreground/80 mt-1">Co dzisiaj robimy?</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-primary-foreground">Dzień dobry!</h1>
+            <p className="text-primary-foreground/80 mt-1">Co dzisiaj robimy?</p>
+          </div>
+          <Link href="/oferty/nowa">
+            <Button size="lg" variant="secondary" className="shadow-md">
+              <Plus className="mr-2 h-5 w-5" />
+              Nowa oferta
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -2,6 +2,9 @@
 
 import useSWR from "swr";
 import Link from "next/link";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import {
@@ -31,7 +34,20 @@ interface Contract {
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function UmowyPage() {
-  const { data: contracts } = useSWR<Contract[]>("/api/contracts", fetcher);
+  const { data: contracts, mutate } = useSWR<Contract[]>("/api/contracts", fetcher);
+
+  async function deleteContract(id: string) {
+    if (!confirm("Czy na pewno chcesz usunąć tę umowę?")) return;
+    try {
+      const res = await fetch(`/api/contracts/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Błąd usuwania");
+      toast.success("Umowa usunięta");
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nie udało się usunąć umowy");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -57,6 +73,7 @@ export default function UmowyPage() {
                 <TableHead>Zaliczka</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Data utworzenia</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -89,6 +106,16 @@ export default function UmowyPage() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(c.createdAt).toLocaleDateString("pl-PL")}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => deleteContract(c.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

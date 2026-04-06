@@ -115,6 +115,7 @@ model Hall {
 
   reservations HallReservation[]
   offerHalls   OfferHall[]
+  offerItems   OfferItem[]
   agendaBlocks AgendaBlock[]
 }
 
@@ -154,6 +155,7 @@ model Package {
   name        String
   description String?
   price       Decimal?  @db.Decimal(10, 2)
+  vatRate     Int?
   isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
   createdAt   DateTime  @default(now())
@@ -173,6 +175,7 @@ model Section {
   selectionMode  SectionSelectionMode @default(ALL_INCLUDED)
   selectionCount Int?
   price          Decimal?             @db.Decimal(10, 2)
+  vatRate        Int?
   isActive       Boolean              @default(true)
   sortOrder      Int                  @default(0)
   createdAt      DateTime             @default(now())
@@ -191,6 +194,7 @@ model MenuItem {
   name        String
   description String?
   price       Decimal? @db.Decimal(10, 2)
+  vatRate     Int?
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -290,6 +294,9 @@ model OfferItem {
   name        String
   description String?
   timeFrom    String?
+  timeTo      String?
+  hallId      String?
+  hall        Hall?     @relation(fields: [hallId], references: [id])
   quantity    Int       @default(1)
   unitPrice   Decimal   @db.Decimal(10, 2)
   vatRate     Int       @default(23)

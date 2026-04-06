@@ -32,8 +32,11 @@ export function StepEvent({ data, onChange }: Props) {
   );
 
   const [showSplit, setShowSplit] = useState(data.childrenCount > 0);
+  const [totalField, setTotalField] = useState((data.adultsCount + data.childrenCount).toString());
   const today = new Date().toISOString().split("T")[0];
   const minDateTo = data.eventDateFrom || today;
+  const total = data.adultsCount + data.childrenCount;
+  const splitMismatch = showSplit && totalField !== "" && total !== (parseInt(totalField) || 0);
 
   return (
     <div className="space-y-4">
@@ -87,10 +90,13 @@ export function StepEvent({ data, onChange }: Props) {
         <Input
           type="number"
           min="1"
-          value={data.adultsCount + data.childrenCount}
+          value={totalField}
           onChange={(e) => {
-            const total = parseInt(e.target.value) || 1;
-            onChange({ adultsCount: total, childrenCount: 0 });
+            setTotalField(e.target.value);
+            if (!showSplit) {
+              const val = parseInt(e.target.value) || 0;
+              onChange({ adultsCount: val, childrenCount: 0 });
+            }
           }}
         />
       </div>
@@ -110,7 +116,7 @@ export function StepEvent({ data, onChange }: Props) {
             <Input
               type="number"
               min="0"
-              value={data.adultsCount}
+              value={data.adultsCount || ""}
               onChange={(e) =>
                 onChange({ adultsCount: parseInt(e.target.value) || 0 })
               }
@@ -121,15 +127,21 @@ export function StepEvent({ data, onChange }: Props) {
             <Input
               type="number"
               min="0"
-              value={data.childrenCount}
+              value={data.childrenCount || ""}
               onChange={(e) =>
                 onChange({ childrenCount: parseInt(e.target.value) || 0 })
               }
             />
           </div>
-          <p className="col-span-2 text-xs text-muted-foreground">
-            Razem: {data.adultsCount + data.childrenCount} osób
-          </p>
+          {splitMismatch ? (
+            <p className="col-span-2 text-xs text-red-600 font-medium">
+              Dorośli ({data.adultsCount}) + Dzieci ({data.childrenCount}) = {total} — nie zgadza się z liczbą osób ({totalField})
+            </p>
+          ) : (
+            <p className="col-span-2 text-xs text-muted-foreground">
+              Razem: {total} osób
+            </p>
+          )}
         </div>
       )}
     </div>

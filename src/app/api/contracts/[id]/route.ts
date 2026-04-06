@@ -103,3 +103,32 @@ export async function PUT(
 
   return NextResponse.json(contract);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Brak autoryzacji" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const contract = await prisma.contract.findUnique({ where: { id } });
+  if (!contract) {
+    return NextResponse.json({ error: "Umowa nie znaleziona" }, { status: 404 });
+  }
+
+  const agenda = await prisma.agenda.findFirst({ where: { offerId: contract.offerId } });
+  if (agenda) {
+    return NextResponse.json(
+      { error: "Najpierw usuń agendę powiązaną z tą ofertą" },
+      { status: 400 }
+    );
+  }
+
+  await prisma.contract.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
+}

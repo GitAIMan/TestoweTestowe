@@ -8,6 +8,7 @@ const packageSchema = z.object({
   name: z.string().min(1, "Nazwa jest wymagana"),
   description: z.string().optional().default(""),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/).nullable().optional(),
+  vatRate: z.number().int().refine(v => v === 8 || v === 23).nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { offerTypeId, name, description, price } = parsed.data;
+  const { offerTypeId, name, description, price, vatRate } = parsed.data;
 
   const maxSort = await prisma.package.aggregate({
     _max: { sortOrder: true },
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
       name,
       description: description || null,
       price: price || null,
+      vatRate: vatRate ?? null,
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
     },
   });

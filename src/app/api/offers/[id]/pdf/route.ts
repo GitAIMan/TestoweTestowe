@@ -16,34 +16,15 @@ export async function GET(
 
   const { id } = await params;
 
-  const [offer, settings] = await Promise.all([
+  const [offer, settings, offerItems] = await Promise.all([
     prisma.offer.findUnique({
       where: { id },
-      include: {
-        offerRooms: {
-          include: { room: { select: { name: true, type: true } } },
-        },
-        offerHalls: {
-          include: { hall: { select: { name: true, capacity: true } } },
-          orderBy: { date: "asc" },
-        },
-        offerPackages: {
-          include: {
-            package: {
-              include: {
-                offerType: { select: { name: true } },
-                sections: {
-                  include: { items: { select: { name: true } } },
-                  orderBy: { sortOrder: "asc" },
-                },
-              },
-            },
-          },
-          orderBy: { sortOrder: "asc" },
-        },
-      },
     }),
     prisma.settings.findFirst(),
+    prisma.offerItem.findMany({
+      where: { offerId: id },
+      orderBy: [{ day: "asc" }, { sortOrder: "asc" }],
+    }),
   ]);
 
   if (!offer) {
@@ -54,31 +35,37 @@ export async function GET(
     return NextResponse.json({ error: "Brak ustawień hotelu" }, { status: 500 });
   }
 
-  // Serializuj daty do stringów
   const serializedOffer = {
-    ...offer,
+    clientName: offer.clientName,
+    clientEmail: offer.clientEmail,
+    clientPhone: offer.clientPhone,
+    clientCompany: offer.clientCompany,
+    eventName: offer.eventName,
     eventDateFrom: offer.eventDateFrom.toISOString(),
     eventDateTo: offer.eventDateTo.toISOString(),
-    createdAt: offer.createdAt.toISOString(),
+    adultsCount: offer.adultsCount,
+    childrenCount: offer.childrenCount,
     totalPrice: offer.totalPrice.toString(),
-    offerRooms: offer.offerRooms.map((r) => ({
-      ...r,
-      pricePerNight: r.pricePerNight.toString(),
-    })),
-    offerHalls: offer.offerHalls.map((h) => ({
-      ...h,
-      date: h.date.toISOString(),
-      pricePerDay: h.pricePerDay.toString(),
-    })),
-    offerPackages: offer.offerPackages.map((p) => ({
-      ...p,
-      priceSnapshot: p.priceSnapshot?.toString() || null,
-    })),
+    notes: offer.notes,
+    createdAt: offer.createdAt.toISOString(),
   };
+
+  const serializedItems = offerItems.map((item) => ({
+    name: item.name,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice.toString(),
+    vatRate: item.vatRate,
+    sourceType: item.sourceType,
+    day: item.day,
+    date: item.date?.toISOString() || null,
+    timeFrom: item.timeFrom,
+    timeTo: item.timeTo,
+  }));
 
   const element = createElement(OfferPdf, {
     hotel: settings,
     offer: serializedOffer,
+    items: serializedItems,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,7 +74,7 @@ export async function GET(
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="oferta-${offer.clientName.replace(/\s+/g, "-")}.pdf"`,
+      "Content-Disposition": `attachment; filename="oferta-${offer.clientName.replace(/\s+/g, "-")}.pdf"`,
     },
   });
 }

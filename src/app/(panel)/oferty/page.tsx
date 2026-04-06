@@ -3,7 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
-import { Hint } from "@/components/ui/hint";
 
 interface Offer {
   id: string;
@@ -58,10 +58,25 @@ export default function OfertyPage() {
   if (searchQuery) params.set("search", searchQuery);
   const queryString = params.toString();
 
-  const { data: offers } = useSWR<Offer[]>(
+  const { data: offers, mutate } = useSWR<Offer[]>(
     `/api/offers${queryString ? `?${queryString}` : ""}`,
     fetcher
   );
+
+  async function deleteOffer(id: string) {
+    if (!confirm("Czy na pewno chcesz usunąć tę ofertę? Zostaną usunięte też powiązane umowy i agendy.")) return;
+    try {
+      const res = await fetch(`/api/offers/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Błąd usuwania");
+      }
+      toast.success("Oferta usunięta");
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nie udało się usunąć oferty");
+    }
+  }
 
   function handleSearch() {
     setSearchQuery(searchInput);
@@ -71,14 +86,12 @@ export default function OfertyPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Oferty</h1>
-        <Hint label="Stwórz ofertę dla klienta. 6 kroków: dane, wydarzenie, sale, pokoje, pakiety, podsumowanie.">
-          <Link href="/oferty/nowa">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nowa oferta
-            </Button>
-          </Link>
-        </Hint>
+        <Link href="/oferty/nowa">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Nowa oferta
+          </Button>
+        </Link>
       </div>
 
       {/* Filtry */}
@@ -132,6 +145,7 @@ export default function OfertyPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Utworzył</TableHead>
                 <TableHead>Data utworzenia</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -169,6 +183,16 @@ export default function OfertyPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(offer.createdAt).toLocaleDateString("pl-PL")}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => deleteOffer(offer.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );

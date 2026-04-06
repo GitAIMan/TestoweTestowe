@@ -28,7 +28,7 @@ const offerPackageSchema = z.object({
 const createOfferSchema = z.object({
   // Dane klienta
   clientName: z.string().min(1, "Imię i nazwisko klienta jest wymagane"),
-  clientEmail: z.string().email("Nieprawidłowy email").optional().default(""),
+  clientEmail: z.union([z.string().email("Nieprawidłowy email"), z.literal("")]).optional().default(""),
   clientPhone: z.string().optional().default(""),
   clientCompany: z.string().optional().default(""),
   // Dane wydarzenia
@@ -109,9 +109,10 @@ export async function POST(req: NextRequest) {
     total = total.add(new Decimal(hall.pricePerDay));
   }
 
+  const personCount = data.adultsCount + data.childrenCount;
   for (const pkg of data.packages) {
     if (pkg.priceSnapshot) {
-      total = total.add(new Decimal(pkg.priceSnapshot));
+      total = total.add(new Decimal(pkg.priceSnapshot).mul(personCount));
     }
   }
 
@@ -249,7 +250,7 @@ export async function POST(req: NextRequest) {
           date: eventFrom,
           sortOrder: sortCounter++,
           name: `${pkgInfo?.name || "Pakiet"} (${pkgInfo?.offerType?.name || ""})`,
-          quantity: data.adultsCount + data.childrenCount,
+          quantity: 1,
           unitPrice: pkg.priceSnapshot || "0",
           vatRate: 8,
           sourceType: "PACKAGE",

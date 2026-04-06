@@ -87,3 +87,40 @@ export async function PUT(
 
   return NextResponse.json(agenda);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Brak autoryzacji" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const agenda = await prisma.agenda.findUnique({ where: { id } });
+  if (!agenda) {
+    return NextResponse.json({ error: "Agenda nie znaleziona" }, { status: 404 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const blocks = await tx.agendaBlock.findMany({ where: { agendaId: id } });
+    for (const block of blocks) {
+      await tx.agendaBlockEquipment.deleteMany({ where: { agendaBlockId: block.id } });
+      await tx.agendaBlockPackage.deleteMany({ where: { agendaBlockId: block.id } });
+    }
+    await tx.agendaBlock.deleteMany({ where: { agendaId: id } });
+    await tx.agendaToken.deleteMany({ where: { agendaId: id } });
+
+    const selections = await tx.agendaSectionSelection.findMany({ where: { agendaId: id } });
+    for (const sel of selections) {
+      await tx.agendaItemSelection.deleteMany({ where: { agendaSectionSelectionId: sel.id } });
+    }
+    await tx.agendaSectionSelection.deleteMany({ where: { agendaId: id } });
+
+    await tx.agenda.delete({ where: { id } });
+  });
+
+  return NextResponse.json({ success: true });
+}

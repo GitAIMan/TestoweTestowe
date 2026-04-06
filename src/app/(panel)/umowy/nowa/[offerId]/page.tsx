@@ -219,13 +219,45 @@ export default function NowaUmowaPage({
             </div>
             <div>
               <Label>Termin wpłaty zaliczki</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Wydarzenie: {new Date(offer.eventDateFrom).toLocaleDateString("pl-PL")}
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {[7, 14, 21, 30].map((days) => {
+                  const d = new Date(offer.eventDateFrom);
+                  d.setDate(d.getDate() - days);
+                  const val = d.toISOString().split("T")[0];
+                  const isActive = form.advanceDueDate === val;
+                  return (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setForm({ ...form, advanceDueDate: val })}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                        isActive
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-accent border-border"
+                      }`}
+                    >
+                      {days} dni przed
+                    </button>
+                  );
+                })}
+              </div>
               <Input
                 type="date"
+                min={new Date().toISOString().split("T")[0]}
+                max={offer.eventDateFrom.split("T")[0]}
                 value={form.advanceDueDate}
                 onChange={(e) =>
                   setForm({ ...form, advanceDueDate: e.target.value })
                 }
               />
+              {form.advanceDueDate && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Wybrano: {new Date(form.advanceDueDate).toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              )}
             </div>
             <div>
               <Label>Warunki płatności</Label>

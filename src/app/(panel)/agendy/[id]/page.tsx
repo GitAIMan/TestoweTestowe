@@ -11,8 +11,8 @@ import {
   CheckCircle,
   Package,
   Lock,
+  Trash2,
 } from "lucide-react";
-import { Hint } from "@/components/ui/hint";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,21 @@ export default function AgendaDetailPage({
   const [generatingToken, setGeneratingToken] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
 
+  async function deleteAgenda() {
+    if (!confirm("Czy na pewno chcesz usunąć tę agendę? Linki klienta i kuchni przestaną działać.")) return;
+    try {
+      const res = await fetch(`/api/agendas/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Błąd usuwania");
+      }
+      toast.success("Agenda usunięta");
+      router.push("/agendy");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nie udało się usunąć agendy");
+    }
+  }
+
   async function finalizeAgenda() {
     if (!confirm("Czy na pewno chcesz sfinalizować agendę? Ta operacja jest nieodwracalna.")) {
       return;
@@ -95,7 +110,12 @@ export default function AgendaDetailPage({
       }
       const finalAgenda = await res.json();
       toast.success("Agenda sfinalizowana!");
-      router.push(`/agendy/${finalAgenda.id}`);
+      // Redirect do widoku Excel oferty
+      if (data?.offer?.id) {
+        router.push(`/oferty/${data.offer.id}/edycja`);
+      } else {
+        router.push(`/agendy/${finalAgenda.id}`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Błąd finalizacji");
     } finally {
@@ -166,16 +186,18 @@ export default function AgendaDetailPage({
         <Badge variant={data.type === "FINALNA" ? "default" : "secondary"}>
           {data.type === "WSTEPNA" ? "Wstępna" : "Finalna"}
         </Badge>
+        <Button size="sm" variant="destructive" onClick={deleteAgenda}>
+          <Trash2 className="mr-1 h-4 w-4" />
+          Usuń agendę
+        </Button>
       </div>
 
       {/* Finalizacja — tylko dla wstępnej */}
       {data.type === "WSTEPNA" && !data.isLocked && (
-        <Hint label="Zamknij wybory klienta i utwórz wersję finalną dla kuchni.">
-          <Button onClick={finalizeAgenda} disabled={finalizing}>
-            <Lock className="mr-1 h-4 w-4" />
-            {finalizing ? "Finalizowanie..." : "Finalizuj agendę"}
-          </Button>
-        </Hint>
+        <Button onClick={finalizeAgenda} disabled={finalizing}>
+          <Lock className="mr-1 h-4 w-4" />
+          {finalizing ? "Finalizowanie..." : "Finalizuj agendę"}
+        </Button>
       )}
 
       {/* Linki */}

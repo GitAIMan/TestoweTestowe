@@ -7,6 +7,7 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/).nullable().optional(),
+  vatRate: z.number().int().refine(v => v === 8 || v === 23).nullable().optional(),
   isActive: z.boolean().optional(),
 });
 

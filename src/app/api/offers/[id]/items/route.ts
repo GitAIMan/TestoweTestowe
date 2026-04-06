@@ -42,11 +42,13 @@ export async function POST(
       name: body.name || "",
       description: body.description || null,
       timeFrom: body.timeFrom || null,
+      timeTo: body.timeTo || null,
+      hallId: body.hallId || null,
       quantity: body.quantity || 1,
       unitPrice: body.unitPrice || "0",
       vatRate: body.vatRate || 23,
-      sourceType: "CUSTOM",
-      sourceId: null,
+      sourceType: body.sourceType || "CUSTOM",
+      sourceId: body.sourceId || null,
     },
   });
 
@@ -71,6 +73,8 @@ export async function PUT(
     name: string;
     description?: string;
     timeFrom?: string;
+    timeTo?: string;
+    hallId?: string;
     quantity: number;
     unitPrice: string;
     vatRate: number;
@@ -87,6 +91,8 @@ export async function PUT(
           name: item.name,
           description: item.description || null,
           timeFrom: item.timeFrom || null,
+          timeTo: item.timeTo || null,
+          hallId: item.hallId || null,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           vatRate: item.vatRate,
@@ -95,13 +101,20 @@ export async function PUT(
     )
   );
 
-  // Przelicz totalPrice
+  // Przelicz totalPrice (pakiety × osoby)
+  const offerData = await prisma.offer.findUnique({
+    where: { id },
+    select: { adultsCount: true, childrenCount: true },
+  });
+  const personCount = (offerData?.adultsCount || 0) + (offerData?.childrenCount || 0);
+
   const allItems = await prisma.offerItem.findMany({
     where: { offerId: id },
   });
 
   const total = allItems.reduce((sum, item) => {
-    const brutto = Number(item.unitPrice) * item.quantity * (1 + item.vatRate / 100);
+    const mul = item.sourceType === "PACKAGE" ? personCount : 1;
+    const brutto = Number(item.unitPrice) * item.quantity * mul * (1 + item.vatRate / 100);
     return sum + brutto;
   }, 0);
 

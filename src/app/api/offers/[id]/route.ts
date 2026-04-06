@@ -54,6 +54,28 @@ export async function GET(
   return NextResponse.json(offer);
 }
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Brak autoryzacji" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const body = await req.json();
+
+  const offer = await prisma.offer.update({
+    where: { id },
+    data: {
+      ...(body.notes !== undefined && { notes: body.notes || null }),
+    },
+  });
+
+  return NextResponse.json(offer);
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

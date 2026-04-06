@@ -333,7 +333,7 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 
 2. **Po zapisie szkicu → redirect na `/oferty/[id]/edycja`** (CENTRUM STEROWANIA):
    - Tabela edycyjna typu Excel z pozycjami rozbitymi na dni
-   - Kolumny: NR | NAZWA | GODZ | ILOŚĆ | CENA NETTO | VAT (8%/23%) | BRUTTO
+   - Kolumny: NR | NAZWA | GODZ OD | GODZ DO | SALA | ILOŚĆ | CENA NETTO | VAT (8%/23%) | BRUTTO
    - Inline editing — każde pole edytowalne
    - "+ Dodaj pozycję" per dzień — pozycje "z palca" (CUSTOM)
    - Podsumowanie: netto, VAT, brutto
@@ -351,7 +351,7 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 
 **Nowy model bazy: `OfferItem`** (migracja `add_offer_items`):
 - Zunifikowany model dla WSZYSTKICH pozycji oferty (sale, pokoje, pakiety, custom)
-- Pola: offerId, day, date, sortOrder, name, description, timeFrom, quantity, unitPrice, vatRate, sourceType, sourceId
+- Pola: offerId, day, date, sortOrder, name, description, timeFrom, timeTo, hallId, quantity, unitPrice, vatRate, sourceType, sourceId
 - Generowany automatycznie po zapisie szkicu z OfferHall/OfferRoom/OfferPackage
 - sourceType: "HALL" / "ROOM" / "PACKAGE" / "CUSTOM"
 
@@ -371,14 +371,33 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 - Strzałka wstecz na umowie → oferta (nie lista umów)
 - Strzałka wstecz na agendzie → oferta (nie lista agend)
 
-**Tooltips/podpowiedzi na przyciskach:**
-- Komponent `<Hint>` — tooltip na hover z krótkim opisem
-- Dodane na: Nowa oferta, PDF, Utwórz umowę, Oznacz jako podpisaną, Utwórz agendę, Dodaj blok, Wygeneruj link, Finalizuj agendę, Dodaj salę, Dodaj pokój
+**Tooltips/podpowiedzi — USUNIĘTE (2026-04-02):**
+- Komponent `<Hint>` usunięty ze wszystkich stron (oferty, agendy, pokoje, sale, umowy)
+- Podpowiedzi będą zrobione inaczej w przyszłości
 
 **Inne fixy:**
 - DELETE endpoint dla ofert (kaskadowe usuwanie)
 - Pola numeryczne: ukryte strzałki CSS + zablokowany scroll/keyboard JS (capture phase)
 - Pakiety na stronie oferty: ładne formatowanie (ramki, badge typ, tryb sekcji, chipsy pozycji)
+- Fix: walidacja email w API ofert — pusty email nie blokuje zapisu (z.union z z.literal(""))
+
+### Przebudowa kreatora pakietów (2026-04-02):
+- Krok 4 "Pakiety" w kreatorze oferty: zamiana klikalnych kafelków na **checkboxy**
+- Rozwijalny podgląd składu pakietu (sekcje → pozycje menu) niezależnie od zaznaczenia
+- Podsumowanie wybranych pakietów z **sumą cen** aktualizowaną na żywo
+
+### Rozszerzenie tabeli Excel w centrum sterowania (2026-04-02):
+- Nowe kolumny: **GODZ OD | GODZ DO | SALA** (dropdown z bazy)
+- Model `OfferItem`: dodano pola `timeTo String?` i `hallId String?` (relacja do Hall)
+- Migracja: `add_hall_and_timeto_to_offer_items`
+- API items: POST i PUT obsługują nowe pola
+
+### Uproszczenie flow agendy (2026-04-02):
+- **Kreator bloków czasowych POMINIĘTY** — harmonogram budowany w tabeli Excel oferty
+- Przycisk "Utwórz agendę" w centrum sterowania tworzy agendę + token klienta **jednym kliknięciem**
+- Nie ma redirectu na kreator bloków — wszystko w centrum sterowania
+- Link klienta pojawia się od razu w panelu akcji do skopiowania
+- Strona `/agendy/nowa/[offerId]` nadal istnieje w kodzie ale nie jest używana w flow
 
 ### Narzędzia bazodanowe:
 - `npx tsx prisma/clear.ts` — czyści całą bazę (zostawia użytkowników)
@@ -396,7 +415,144 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 - Branch `staging` — testowanie (praca tutaj)
 - NIGDY commit/push bez zgody użytkownika
 
-**UWAGA:** Baza danych wymaga migracji `add_offer_items`. Uruchom `npm run db:migrate` po pobraniu kodu.
+### Usuwanie umów, agend i ofert (2026-04-06):
+- **DELETE endpoint dla umów** — `DELETE /api/contracts/[id]`, blokuje usunięcie jeśli istnieje agenda (najpierw usuń agendę)
+- **DELETE endpoint dla agend** — `DELETE /api/agendas/[id]`, kaskadowe usunięcie bloków, tokenów, wyborów klienta (wzorzec z ofert)
+- **Przyciski usuwania** dodane w 5 miejscach:
+  - Lista ofert `/oferty` — ikona kosza per wiersz
+  - Lista umów `/umowy` — ikona kosza per wiersz
+  - Lista agend `/agendy` — ikona kosza per wiersz
+  - Strona umowy `/umowy/[id]` — przycisk "Usuń umowę"
+  - Strona agendy `/agendy/[id]` — przycisk "Usuń agendę"
+  - Centrum sterowania oferty `/oferty/[id]/edycja` — przyciski usuwania umowy i agendy w panelu akcji
+- **Zasada zależności**: usunięcie umowy blokowane jeśli istnieje agenda → komunikat "Najpierw usuń agendę"
+- **Hard delete** (zgodne z istniejącym wzorcem kaskadowego usuwania ofert)
+
+### Przycisk "Nowa oferta" na dashboardzie (2026-04-06):
+- Duży przycisk `+ Nowa oferta` w bannerze "Dzień dobry!" na dashboardzie
+
+### Przebudowa strony Menu (2026-04-06):
+- **Strona `/menu`** — przepisana z akordeonu na **kafelki typów ofert**
+  - Każdy typ oferty (np. "Oferta Weselna") to klikalna karta
+  - Kliknięcie przenosi do `/menu/[id]` — osobny edytor
+  - Przycisk "+ Stwórz nową ofertę menu" jako kafelek z dashed border
+  - Edycja nazwy i usuwanie per kafelek (ikony ołówka i kosza)
+- **Nowa strona `/menu/[id]`** — edytor pakietów/sekcji/pozycji
+  - Pakiety jako duże karty z niebieskim gradientem i ikoną
+  - Sekcje jako zielone sub-karty z ramką
+  - Pozycje menu jako lista z pomarańczowymi ikonami
+  - Kolorowe badge VAT (8% zielony, 23% bursztynowy)
+  - Duże, czytelne przyciski "Edytuj" / "Usuń" z tekstem
+  - Kolorowe przyciski "Dodaj sekcję" (zielony dashed) i "Dodaj pozycję menu" (pomarańczowy)
+  - Dialog z kolorową ikoną w tytule, duże pola (h-11)
+- **Nowy GET endpoint** — `GET /api/menu/offer-types/[id]` zwraca jeden typ z pełnym drzewem
+
+### VAT na poziomie menu (2026-04-06):
+- **Migracja:** `add_vat_rate_to_menu_models` — dodano pole `vatRate Int?` do modeli Package, Section, MenuItem
+- **API:** vatRate dodany do POST/PUT w 6 plikach route (packages, sections, items)
+- Każdy poziom (pakiet, sekcja, pozycja) ma **osobny VAT** (8% lub 23%)
+- Typ oferty NIE ma ceny ani VAT
+
+### Bulk save w edytorze menu (2026-04-06):
+- **Lokalny stan edycji** — dodawanie/edycja/usuwanie pakietów/sekcji/pozycji działa lokalnie w React state
+- **Jeden przycisk ZAPISZ** na górze strony — wysyła wszystkie zmiany naraz do API
+- Żółty banner "Masz niezapisane zmiany" gdy są niezapisane zmiany
+- Badge "Nowy" na nowo dodanych elementach (tymczasowe id `temp_*`)
+- Ostrzeżenie `beforeunload` przy próbie wyjścia bez zapisania
+- **Cena domyślnie 0 zł** — puste pole ceny = 0.00 zł (nie "w cenie")
+- Każdy element MUSI mieć cenę (minimum 0 zł)
+- Bulk save: porównuje stan lokalny z oryginalnym, wysyła tylko różnice (POST nowe, PUT zmienione, DELETE usunięte)
+
+### Inline formularze w edytorze menu (2026-04-07):
+- **Dialogi (modale) usunięte** — dodawanie/edycja pakietów, sekcji, pozycji odbywa się inline na stronie
+- **PackageInlineForm** — formularz pakietu z dynamicznym dodawaniem sekcji i pozycji w jednym widoku
+  - Klik "Dodaj pakiet" → pola pakietu + wewnątrz "+ Dodaj sekcję" + w każdej sekcji "+ Dodaj pozycję"
+  - Enter na pozycji → zielony flash ✓ + auto-dodaj nową pozycję + focus
+  - Edycja pakietu: ten sam formularz, istniejące sekcje zachowane
+- **InlineForm** (sekcja/pozycja) — dla edycji/dodawania pojedynczych sekcji i pozycji w zapisanym pakiecie
+- VAT domyślnie **8%** dla sekcji i pozycji (żywność), pakiet 23% (usługi)
+- Jeden przycisk "Zapisz zmiany" (usunięto duplikat z bannera)
+
+### Notatnik z rozmowy (2026-04-07):
+- **Kreator oferty** — sticky notatnik po prawej stronie (desktop) / zwijany na dole (mobile)
+  - Widoczny przez wszystkie 5 kroków kreatora
+  - Pole `notes` z `OfferFormData` — zapisuje się razem z ofertą
+  - Amber kolor jak karteczka, placeholder z przykładami
+- **Centrum sterowania (widok Excel)** — edytowalny panel notatek na dole strony
+  - Przycisk "Zapisz notatki" pojawia się gdy coś zmienione
+  - API: `PATCH /api/offers/[id]` — aktualizacja notatek
+
+### Przycisk "Dodaj z menu" w widoku Excel (2026-04-07):
+- **Autocomplete w polu NAZWA** — wpisz "pak" → podpowiedź "Pakiety" → klik otwiera pop-up
+- **Pop-up krok 1** — wszystkie pakiety pogrupowane po typach ofert (Weselna, Konferencyjna...)
+- **Pop-up krok 2** — read-only podgląd składu pakietu (sekcje + pozycje), badge "Wszystko w cenie" / "Klient wybiera X z Y"
+- **Wiersz pakietu w tabeli** — 1 wiersz z ikoną Package (niebieski), strzałka rozwinięcia
+  - Rozwinięcie: read-only lista sekcji i pozycji, badge trybu sekcji
+  - Cena i VAT edytowalne, nazwa edytowalna
+  - `sourceType: "PACKAGE"`, `sourceId: ID pakietu`
+  - `description`: JSON z kompozycją pakietu (snapshot składu)
+- **Pusta pozycja usuwana** automatycznie po wybraniu pakietu z menu
+- Komponent `NameInputWithSuggest` — input z dropdown podpowiedzią
+- Komponent `Checkbox` (shadcn) zainstalowany
+
+### Ceny za osobę (2026-04-07):
+- **Zasada:** wszystko z menu (pakiety/sekcje/pozycje) = cena za osobę. Sale i custom = ryczałt.
+- **Kolumna OSOBY** w tabeli Excel — read-only, z oferty (adultsCount + childrenCount)
+  - Dla PACKAGE: pokazuje liczbę osób
+  - Dla HALL/CUSTOM: "—"
+- **Formuła brutto:**
+  - PACKAGE: `unitPrice × osoby × ilość × (1 + VAT/100)`
+  - Reszta: `unitPrice × ilość × (1 + VAT/100)`
+- **Backend PUT** (`/api/offers/[id]/items`) — przelicza totalPrice z uwzględnieniem osób
+- **POST tworzenie oferty** — pakiet: `quantity = 1`, `unitPrice = cena/os`, totalPrice × osoby
+- **PDF oferty** — pakiety: `cena zł/os × X os.`
+
+### Przebudowa PDF oferty (2026-04-07):
+- PDF bierze dane z **OfferItems** (nie ze starych snapshotów offerRooms/offerHalls/offerPackages)
+- Tabela per dzień: NR, NAZWA, ILOŚĆ, OSOBY, CENA/JM, VAT, BRUTTO
+- Pakiety: `[/os]` przy nazwie, kolumna OSOBY
+- Podsumowanie: netto + VAT + brutto
+- PDF **pobiera plik** (attachment) zamiast otwierać w przeglądarce
+
+### Flow wysyłki oferty (2026-04-07):
+- Przycisk **"Wysyłam ofertę"** (zamiast "Oznacz jako wysłaną")
+- Pop-up potwierdzenia: imię klienta, checklist (oferta gotowa, PDF wysłany), przycisk "Potwierdzam wysłanie"
+
+### Termin zaliczki w umowie (2026-04-07):
+- **Szybkie przyciski**: "7 dni przed", "14 dni przed", "21 dni przed", "30 dni przed" wydarzeniem
+- Data wydarzenia widoczna jako przypomnienie
+- Pole date: min = dziś, max = data wydarzenia
+- Podgląd wybranej daty słownie
+
+### Banner odliczania + blokada edycji (2026-04-07):
+- **Banner** pod nagłówkiem w widoku Excel:
+  - Zielony (>14 dni): "Wydarzenie za X dni — zmiany dozwolone"
+  - Czerwony (≤14 dni): "Wydarzenie za X dni — edycja zablokowana"
+  - Szary (≤0 dni): "Wydarzenie zakończone"
+- **Blokada** gdy ≤14 dni: pola tabeli wyszarzone (pointer-events-none), ukryty "Dodaj pozycję", ukryty "Zapisz pozycje"
+- Notatki: nadal edytowalne (nie część oferty)
+
+### Przycisk "Odśwież agendę" (2026-04-07):
+- W karcie akcji, widoczny gdy agenda istnieje i edycja dozwolona
+- Klik: confirm → usuwa WSZYSTKIE agendy oferty → tworzy nową WSTĘPNĄ + token klienta
+- API GET `/api/agendas?offerId=` — dodano filtrowanie po offerId
+- Finalizacja agendy → redirect do widoku Excel oferty (nie zostaje na stronie agendy)
+
+### Przewodnik krok po kroku (2026-04-07):
+- **Przycisk "?"** — okrągły, w prawym górnym rogu nagłówka widoku Excel
+- **Pop-up z 7 krokami**: od "Uzupełnij ofertę" po "Finalizuj agendę"
+- **Interaktywny** — system wykrywa aktualny krok z danych (status oferty, umowa, agenda):
+  - Aktualny: niebieska ramka + numer
+  - Ukończone: zielone + ptaszek ✓
+  - Przyszłe: wyszarzone
+- Info o blokadzie 14 dni na dole
+
+### Pola numeryczne (2026-04-07):
+- Pole ILOŚĆ: `value={quantity || ""}` — da się wyczyścić i wpisać od nowa
+- Kreator oferty krok 2: pole "Liczba osób" — osobny stan `totalField`, da się kasować
+  - Walidacja dorośli+dzieci: czerwony komunikat gdy suma się nie zgadza
+
+**UWAGA:** Baza danych wymaga migracji `add_offer_items` + `add_hall_and_timeto_to_offer_items` + `add_vat_rate_to_menu_models`. Uruchom `npm run db:migrate` po pobraniu kodu.
 
 **Pełny plan implementacji:** patrz `PLAN.md` w katalogu projektu.
 

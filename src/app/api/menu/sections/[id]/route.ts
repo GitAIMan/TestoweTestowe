@@ -8,6 +8,7 @@ const updateSchema = z.object({
   selectionMode: z.enum(["ALL_INCLUDED", "CHOOSE_X_FROM_Y"]).optional(),
   selectionCount: z.number().int().min(1).nullable().optional(),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/).nullable().optional(),
+  vatRate: z.number().int().refine(v => v === 8 || v === 23).nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
