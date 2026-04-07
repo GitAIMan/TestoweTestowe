@@ -4,6 +4,7 @@ import { Fragment, use, useState, useEffect } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Decimal from "decimal.js";
 import {
   ArrowLeft,
   Plus,
@@ -558,15 +559,17 @@ export default function OfferEditPage({
   // ==================== TOTALS ====================
 
   const personCount = offer.adultsCount + offer.childrenCount;
-  const totalNetto = items.reduce((s, i) => {
+  let totalNettoD = new Decimal(0);
+  let totalVatD = new Decimal(0);
+  for (const i of items) {
     const mul = i.sourceType === "PACKAGE" ? personCount : 1;
-    return s + Number(i.unitPrice) * i.quantity * mul;
-  }, 0);
-  const totalVat = items.reduce((s, i) => {
-    const mul = i.sourceType === "PACKAGE" ? personCount : 1;
-    return s + Number(i.unitPrice) * i.quantity * mul * (i.vatRate / 100);
-  }, 0);
-  const totalBrutto = totalNetto + totalVat;
+    const netto = new Decimal(i.unitPrice).mul(i.quantity).mul(mul);
+    totalNettoD = totalNettoD.add(netto);
+    totalVatD = totalVatD.add(netto.mul(new Decimal(i.vatRate).div(100)));
+  }
+  const totalNetto = totalNettoD.toNumber();
+  const totalVat = totalVatD.toNumber();
+  const totalBrutto = totalNettoD.add(totalVatD).toNumber();
 
   // Blokada edycji 14 dni przed wydarzeniem
   const eventDate = new Date(offer.eventDateFrom);
@@ -836,10 +839,11 @@ export default function OfferEditPage({
                   {dayItems.map((item, idx) => {
                     const isPackage = item.sourceType === "PACKAGE";
                     const personCount = offer.adultsCount + offer.childrenCount;
-                    const netto = isPackage
-                      ? Number(item.unitPrice) * personCount * item.quantity
-                      : Number(item.unitPrice) * item.quantity;
-                    const brutto = netto * (1 + item.vatRate / 100);
+                    const mul = isPackage ? personCount : 1;
+                    const nettoD = new Decimal(item.unitPrice).mul(item.quantity).mul(mul);
+                    const bruttoD = nettoD.mul(new Decimal(1).add(new Decimal(item.vatRate).div(100)));
+                    const netto = nettoD.toNumber();
+                    const brutto = bruttoD.toNumber();
                     const isExpanded = expandedRows.has(item.id);
                     const composition = isPackage ? tryParseComposition(item.description) : null;
 

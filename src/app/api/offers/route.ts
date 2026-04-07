@@ -96,23 +96,27 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
 
-  // Oblicz totalPrice z decimal.js
+  // Oblicz totalPrice z decimal.js (BRUTTO — z VAT)
   let total = new Decimal(0);
+  const personCount = data.adultsCount + data.childrenCount;
 
   for (const room of data.rooms) {
-    total = total.add(
-      new Decimal(room.pricePerNight).mul(room.quantity).mul(room.nights)
-    );
+    const netto = new Decimal(room.pricePerNight).mul(room.quantity).mul(room.nights);
+    const brutto = netto.mul(new Decimal(1).add(new Decimal(8).div(100)));
+    total = total.add(brutto);
   }
 
   for (const hall of data.halls) {
-    total = total.add(new Decimal(hall.pricePerDay));
+    const netto = new Decimal(hall.pricePerDay);
+    const brutto = netto.mul(new Decimal(1).add(new Decimal(23).div(100)));
+    total = total.add(brutto);
   }
 
-  const personCount = data.adultsCount + data.childrenCount;
   for (const pkg of data.packages) {
     if (pkg.priceSnapshot) {
-      total = total.add(new Decimal(pkg.priceSnapshot).mul(personCount));
+      const netto = new Decimal(pkg.priceSnapshot).mul(personCount);
+      const brutto = netto.mul(new Decimal(1).add(new Decimal(8).div(100)));
+      total = total.add(brutto);
     }
   }
 

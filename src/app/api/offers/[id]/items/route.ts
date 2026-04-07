@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import Decimal from "decimal.js";
 
 export async function GET(
   req: NextRequest,
@@ -101,7 +102,7 @@ export async function PUT(
     )
   );
 
-  // Przelicz totalPrice (pakiety × osoby)
+  // Przelicz totalPrice (pakiety × osoby) — Decimal dla precyzji
   const offerData = await prisma.offer.findUnique({
     where: { id },
     select: { adultsCount: true, childrenCount: true },
@@ -112,11 +113,13 @@ export async function PUT(
     where: { offerId: id },
   });
 
-  const total = allItems.reduce((sum, item) => {
+  let total = new Decimal(0);
+  for (const item of allItems) {
     const mul = item.sourceType === "PACKAGE" ? personCount : 1;
-    const brutto = Number(item.unitPrice) * item.quantity * mul * (1 + item.vatRate / 100);
-    return sum + brutto;
-  }, 0);
+    const netto = new Decimal(item.unitPrice.toString()).mul(item.quantity).mul(mul);
+    const brutto = netto.mul(new Decimal(1).add(new Decimal(item.vatRate).div(100)));
+    total = total.add(brutto);
+  }
 
   await prisma.offer.update({
     where: { id },

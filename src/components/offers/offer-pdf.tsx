@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import Decimal from "decimal.js";
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica" },
@@ -137,16 +138,18 @@ export function OfferPdf({ hotel, offer, items }: OfferPdfProps) {
   }
   const days = Array.from(dayMap.entries()).sort(([a], [b]) => a - b);
 
-  // Totals
-  let totalNetto = 0;
-  let totalVat = 0;
+  // Totals — Decimal dla precyzji groszowej
+  let totalNettoD = new Decimal(0);
+  let totalVatD = new Decimal(0);
   for (const item of items) {
     const mul = item.sourceType === "PACKAGE" ? personCount : 1;
-    const netto = Number(item.unitPrice) * item.quantity * mul;
-    totalNetto += netto;
-    totalVat += netto * (item.vatRate / 100);
+    const netto = new Decimal(item.unitPrice).mul(item.quantity).mul(mul);
+    totalNettoD = totalNettoD.add(netto);
+    totalVatD = totalVatD.add(netto.mul(new Decimal(item.vatRate).div(100)));
   }
-  const totalBrutto = totalNetto + totalVat;
+  const totalNetto = totalNettoD.toNumber();
+  const totalVat = totalVatD.toNumber();
+  const totalBrutto = totalNettoD.add(totalVatD).toNumber();
 
   return (
     <Document>
@@ -248,8 +251,10 @@ export function OfferPdf({ hotel, offer, items }: OfferPdfProps) {
               {dayData.items.map((item, idx) => {
                 const isPackage = item.sourceType === "PACKAGE";
                 const mul = isPackage ? personCount : 1;
-                const netto = Number(item.unitPrice) * item.quantity * mul;
-                const brutto = netto * (1 + item.vatRate / 100);
+                const nettoD = new Decimal(item.unitPrice).mul(item.quantity).mul(mul);
+                const bruttoD = nettoD.mul(new Decimal(1).add(new Decimal(item.vatRate).div(100)));
+                const netto = nettoD.toNumber();
+                const brutto = bruttoD.toNumber();
                 const timeStr = item.timeFrom ? `${item.timeFrom}${item.timeTo ? `-${item.timeTo}` : ""}` : "";
                 const nameStr = timeStr ? `${item.name} (${timeStr})` : item.name;
 

@@ -233,6 +233,7 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 - Multi-language / multi-currency
 - Ładny design PDF-ów (współpraca z designerem)
 - System wygasania ofert (po ilu dniach)
+- **Aneksy do umów (po MVP)** — gdy po podpisaniu umowy zmienią się pozycje (liczba osób, dodatkowy pakiet, inna sala), system generuje PDF aneksu: "do umowy nr X z dnia Y zmieniamy: [lista zmian z kwotami]". Przycisk "Generuj aneks" w centrum sterowania oferty. Aneks = standard w branży hotelowej (hotele robią aneksy na 7-21 dni przed eventem gdy klient podaje ostateczną liczbę gości). Na MVP: pracownik pisze aneks ręcznie w Wordzie.
 
 ---
 
@@ -551,6 +552,19 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
 - Pole ILOŚĆ: `value={quantity || ""}` — da się wyczyścić i wpisać od nowa
 - Kreator oferty krok 2: pole "Liczba osób" — osobny stan `totalField`, da się kasować
   - Walidacja dorośli+dzieci: czerwony komunikat gdy suma się nie zgadza
+
+### Audyt i fix precyzji cenowej (2026-04-07):
+- **BUG naprawiony: totalPrice netto vs brutto** — POST `/api/offers` liczył totalPrice jako netto (bez VAT), a PUT `/api/offers/[id]/items` jako brutto (z VAT). Teraz WSZĘDZIE = brutto (z VAT).
+- **BUG naprawiony: precyzja groszowa** — obliczenia cenowe w 4 plikach zamienione z `Number()` na `decimal.js`:
+  - `src/app/api/offers/route.ts` — POST tworzenie oferty (totalPrice brutto z VAT)
+  - `src/app/api/offers/[id]/items/route.ts` — PUT przeliczanie totalPrice po edycji
+  - `src/app/(panel)/oferty/[id]/edycja/page.tsx` — frontend: podsumowanie + obliczenia per wiersz
+  - `src/components/offers/offer-pdf.tsx` — PDF: sumy + obliczenia per wiersz
+- **Zasada cen za osobę** (5 miejsc w kodzie, wszystkie spójne):
+  - `sourceType === "PACKAGE"` → `unitPrice × quantity × personCount × (1 + VAT/100)`
+  - `sourceType === "HALL" / "ROOM" / "CUSTOM"` → `unitPrice × quantity × (1 + VAT/100)`
+  - `personCount = adultsCount + childrenCount` (z modelu Offer, linie 221-222 schema.prisma)
+- **Zasada:** totalPrice w bazie = ZAWSZE brutto (z VAT). Nie mieszać netto/brutto.
 
 **UWAGA:** Baza danych wymaga migracji `add_offer_items` + `add_hall_and_timeto_to_offer_items` + `add_vat_rate_to_menu_models`. Uruchom `npm run db:migrate` po pobraniu kodu.
 
