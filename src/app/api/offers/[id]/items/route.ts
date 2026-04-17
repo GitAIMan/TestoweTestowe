@@ -3,6 +3,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Decimal from "decimal.js";
 
+async function touchAgendas(offerId: string) {
+  await prisma.agenda.updateMany({
+    where: { offerId },
+    data: { updatedAt: new Date() },
+  });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,6 +24,7 @@ export async function GET(
   const items = await prisma.offerItem.findMany({
     where: { offerId: id },
     orderBy: [{ day: "asc" }, { sortOrder: "asc" }],
+    include: { hall: { select: { id: true, name: true } } },
   });
 
   return NextResponse.json(items);
@@ -52,6 +60,8 @@ export async function POST(
       sourceId: body.sourceId || null,
     },
   });
+
+  await touchAgendas(id);
 
   return NextResponse.json(item, { status: 201 });
 }
@@ -126,6 +136,8 @@ export async function PUT(
     data: { totalPrice: total.toFixed(2) },
   });
 
+  await touchAgendas(id);
+
   return NextResponse.json({ success: true, totalPrice: total.toFixed(2) });
 }
 
@@ -138,6 +150,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Brak autoryzacji" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const url = new URL(req.url);
   const itemId = url.searchParams.get("itemId");
 
@@ -146,6 +160,8 @@ export async function DELETE(
   }
 
   await prisma.offerItem.delete({ where: { id: itemId } });
+
+  await touchAgendas(id);
 
   return NextResponse.json({ success: true });
 }

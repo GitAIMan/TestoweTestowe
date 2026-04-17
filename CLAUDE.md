@@ -566,6 +566,97 @@ Model: **1 instancja = 1 hotel = 1 folder = 1 baza = 1 deployment na Railway**
   - `personCount = adultsCount + childrenCount` (z modelu Offer, linie 221-222 schema.prisma)
 - **Zasada:** totalPrice w bazie = ZAWSZE brutto (z VAT). Nie mieszać netto/brutto.
 
+### Filtr sal po pojemności + Drag & Drop (2026-04-17):
+- **Krok "Sale" w kreatorze** (`src/components/offers/step-halls.tsx`): sale o pojemności `< adultsCount + childrenCount` są wyciszone (`opacity-50`), z badge "mała" + tooltip pokazujący wymaganą liczbę gości, przeniesione na dół listy. Klikalne (nie blokujemy).
+- **Drag & Drop w tabeli Excel** (`src/app/(panel)/oferty/[id]/edycja/page.tsx`): biblioteka `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`. Uchwyt `GripVertical` w kolumnie NR, drag tylko w obrębie dnia (SortableContext per dzień), po drop natychmiastowy PUT `/api/offers/[id]/items` z przeliczonym sortOrder. Blokada przy ≤14 dni. Pakiety — rozwinięcie chowa się przy drop (wymuszamy `expandedRows: new Set()`).
+- Strzałka rozwijania pakietu ma `pointer-events: auto` — działa nawet gdy tbody ma `pointer-events-none` (blokada edycji).
+
+### Fix Rules of Hooks po DnD (2026-04-17):
+- `useSensors` MUSI być przed early-return `if (!fullData) return <p>` — inaczej React wykrywa zmianę kolejności hooków. Przeniesione zaraz po useState, przed useEffect.
+
+### Skład pakietu w tabeli Excel dla ofert z kreatora (2026-04-17):
+**Problem:** Pakiety dodane w kreatorze oferty (krok 4) miały pustą strzałkę rozwijania w tabeli Excel. `description` = null, więc `tryParseComposition` zwracał null. Działało tylko dla pakietów z pickera "Dodaj z menu" (centrum sterowania).
+- **Zmiana A (backend):** `POST /api/offers` (`src/app/api/offers/route.ts`) — przy tworzeniu OfferItem dla pakietów rozszerzono `findUnique` o `sections → items`, budowana jest kompozycja JSON i zapisywana w `description`. Struktura: `{packageName, offerTypeName, sections: [{name, mode, count, items: string[]}]}`. Kompozycja = cały pakiet (wszystkie sekcje, wszystkie pozycje).
+- **Zmiana B (frontend fallback):** `src/app/(panel)/oferty/[id]/edycja/page.tsx` — zbudowana `menuCompositionMap: Map<packageId, PackageComposition>` z `offerTypes` (SWR `/api/menu/offer-types`, już fetchowane dla pickera). Fallback: `tryParseComposition(item.description) ?? menuCompositionMap.get(item.sourceId)`. Bez migracji danych, stare oferty działają na bieżąco.
+- **Zmiana C (PDF fallback):** `/api/offers/[id]/pdf` — dla pakietów bez `description` dociąga kompozycje z bazy (findMany po sourceId) i wstrzykuje do serializedItems.
+
+### Redesign PDF oferty — "editorial boutique" (2026-04-17):
+**Cel:** PDF z oceny 2/10 (surowa tabela) do 9/10 (poziom butikowego hotelu). Klient ma mieć efekt WOW.
+
+**Stack graficzny:**
+- **Czcionki:** Fraunces (display serif, 400/500/600/700 + italic) + Manrope (body sans, 400/500/600/700/800). Zainstalowane z `@expo-google-fonts/fraunces` i `@expo-google-fonts/manrope` (TTF, bo `@react-pdf/renderer` nie obsługuje WOFF). Polskie znaki OK (ą, ć, ę, ł, ń, ó, ś, ź, ż) — font files zawierają latin-ext. `Font.registerHyphenationCallback((w) => [w])` wyłącza auto-hyphenation (psuła polskie słowa).
+- **Kolor:** pobierany z `Settings.primaryColor` (coral-rose `#d16470`, pochodzi z `--primary: oklch(0.637 0.137 15)` z globals.css). Jasny wariant (+40 delta) i ciemny (-55) obliczane z `adjustHex`. Fallback jeśli brak brandu: `#d16470`.
+- **Gradient (bez SVG LinearGradient — nie działa w pdfjs):** symulowany przez wiele trapezów/prostokątów z interpolowanymi kolorami (`lerpHexMulti`). 80 trapezów dla okładki (diagonalny), 40 prostokątów dla totalBox (horyzontalny ciemny→coral).
+- **Paleta neutralna:** INK `#1a1210`, BODY `#3f2e2a`, MUTE `#8f7872`, RULE `#ecd9d4`, CREAM `#fbf4f1`, SOFT `#f5e0dc`.
+
+**Layout strony 1 (cover):**
+- **Cover band** (200px wysokości) — coralowy gradient diagonalny + dekoracyjne koła (białe z opacity) + winieta dolna (accentDark @ 0.35) + cienki pasek akcentowy accentLight na dole. W środku: eyebrow "Propozycja · {kod}", nazwa hotelu (Fraunces 26/600) w białym, tagline "Przygotowane dla {klient}" italic. Po prawej: monogram w kwadracie z białym borderem (inicjały hotelu).
+- **Title block:** eyebrow "OFERTA WYDARZENIA" z coralową kreską, tytuł `eventName` (Fraunces 42/600, letterSpacing -1), data italic accent, 4-kolumnowy meta (NUMER/WYSTAWIONO/WAŻNA DO/GOŚCIE).
+- **Sekcja "i. Szczegóły":** dwie karty CREAM z lewym coralowym paskiem — Klient (imię, firma, email, telefon) i Wydarzenie (termin, dorośli, dzieci, razem).
+- **Highlights strip:** 3 kolumny z ikonami SVG coral — Goście (ikona osoby), Dni (ikona kalendarza), Wartość (ikona $). Wielkie liczby Fraunces 22/700, labele uppercase + wartość + italic sub.
+
+**Layout strony 2 (program):**
+- **Sekcja "ii. Program i pozycje":** per dzień duży numer "01"/"02" coral (Fraunces 38/700, letterSpacing -1.5) + label "Dzień" + data słownie.
+- **Tabela:** INK top border, kolumny # / POZYCJA / GODZ. / IL. / OS. / CENA / VAT / BRUTTO. Pakiety mają subtelnie kremowe tło + tag "PAKIET · CENA ZA OSOBĘ" coral.
+- **Rozwinięcie pakietu:** lista sekcji (Fraunces italic 9/600) z badge trybu ("· W CENIE" / "· DO WYBORU X Z Y") + pozycje z myślnikami (Manrope 8.5). Read-only.
+- **Total:** netto/VAT jako subtotalRow (małe, w prawo), TotalBox 84px — horyzontalny gradient (INK→accentDark→accent) + dekoracyjne koła, "Razem brutto / Do zapłaty" (italic) po lewej, kwota + PLN po prawej. **Kwota Fraunces 14/600** — celowo nie krzyczy (klient nie lubi wyeksponowanej ceny). Gradient zachowany jako "wizualny podpis".
+- **Pasek ważności** (SOFT tło): ikona tarczy coral + tekst "Oferta ważna do {data}. Potwierdzenie rezerwacji następuje po podpisaniu umowy."
+- **Notatki** (jeśli są): "Uwagi" tytuł italic + body.
+- **Footer fixed:** dane hotelu + numer strony "01 / 02" uppercase letterSpacing.
+
+**Kluczowe pliki:**
+- `src/components/offers/offer-pdf.tsx` — cały komponent PDF (~1300 linii)
+- `src/app/api/offers/[id]/pdf/route.ts` — dociąganie composition dla pakietów bez description
+
+**Ograniczenia `@react-pdf/renderer`:**
+- Brak CSS gradientów, brak cieni — wszystko przez SVG Rects/Paths
+- `<LinearGradient>` w `<Defs>` nie działa (przynajmniej w pdfjs preview)
+- Tylko TTF/OTF (nie WOFF) — dlatego `@expo-google-fonts`
+- Brak emoji (używamy SVG ikonek)
+
+### Uprawnienia Settings (RBAC):
+- `PUT /api/settings` — **tylko KIEROWNIK**. PRACOWNIK dostaje 403 "Brak uprawnień".
+- Logika: zmiana brandingu (logo, kolor, NIP, nazwa) to decyzja biznesowa, nie operacyjna.
+- Loginy testowe: `anna@hotel.pl` (PRACOWNIK), `kierownik@hotel.pl` (KIEROWNIK), hasło `test1234`.
+
+### Poprawki do agendy FINALNEJ (2026-04-18):
+**Problem:** Klient po finalizacji dzwoni z poprawkami (zmiana wyboru, dodać tort, zmienić salę). Stara logika blokowała wszystko: agenda FINALNA `isLocked=true`, widok Excel blokowany ≤14 dni. Pracownik nie miał jak zmieniać.
+**Rozwiązanie:** FINALNA ma dwa stany — `isLocked=true` (zatwierdzona) lub `isLocked=false` (w trakcie poprawek). Przycisk „Wprowadź poprawki" toggluje. Podczas poprawek edytujesz harmonogram (Excel oferty) i wybory klienta (checkboxy w agendzie). Potem „Zatwierdź zmiany".
+**Nowe endpointy:**
+- `POST /api/agendas/[id]/unlock` — ustawia `isLocked=false` dla FINALNA
+- `POST /api/agendas/[id]/relock` — ustawia `isLocked=true` dla FINALNA
+- `PUT /api/agendas/[id]/selections` — pracownik zmienia wybory klienta (wymaga `isLocked=false`)
+**Zmiana blokady widoku Excel:**
+- Było: `isLocked = daysLeft <= 14` (blokowało pracownika)
+- Jest: `isLocked = (agenda?.type === "FINALNA" && agenda?.isLocked) || isFinished`
+- Blokada 14 dni zostaje TYLKO dla klienta (w jego widoku publicznym)
+**Baner kuchni:** `/kuchnia/[token]` pokazuje „Zaktualizowano DD.MM.YYYY HH:MM" z `agenda.updatedAt`. Zmiany w offerItems (POST/PUT/DELETE) dotykają agendy (`touchAgendas`), żeby baner się odświeżał po edycji harmonogramu.
+**Badge agendy:** nowe warianty — „Wstępna" (szare), „Zatwierdzona" (zielone success), „W trakcie poprawek" (żółte warning).
+**Umiejscowienie kart:** karty „Wprowadź poprawki" / „Agenda w trakcie poprawek" są na GÓRZE strony `/agendy/[id]` (zaraz pod nagłówkiem, przed linkami), żeby pracownik nie musiał scrollować.
+
+**Dynamiczne sekcje CHOOSE (kluczowe!):**
+Gdy pracownik w trakcie poprawek DODA nowy pakiet w Excelu oferty (sekcja CHOOSE 1/5 itd.), system musi pokazać nowe checkboxy do wyboru — zarówno pracownikowi (w `/agendy/[id]`) jak i klientowi (w `/klient/[token]`).
+- **Widok klienta** (`/api/public/agenda/[token]`): `packageCompositions` budowane z `offerItems` (sourceType=PACKAGE) → dociąga aktualne `Package.sections` z bazy menu. Nowe pakiety widoczne automatycznie.
+- **Widok pracownika** (`/agendy/[id]`): strona fetchuje `/api/menu/offer-types` (pełne drzewo menu) i buduje `allChooseSections` z **packageIdsInSchedule** (aktualne scheduleItems), nie ze starego `offer.offerPackages`. Fallback na offerPackages tylko gdy menu jeszcze się nie załadowało.
+
+**Scenariusze flow (zapamiętać!):**
+- **Event za >14 dni** (klient nieblokowany czasowo):
+  1. Pracownik: „Wprowadź poprawki" → dodaje pakiet „Desery" w Excelu
+  2. Wysyła klientowi ten sam link: „zerknij, dodałam desery, wybierz ulubione"
+  3. Klient widzi nowy pakiet, klika wybory 1/3, zapisuje
+  4. Pracownik wraca na agendę → sekcja „Wybory klienta" pokazuje świeże dane
+  5. Pracownik „Zatwierdź zmiany" → kuchnia widzi nowy pakiet + baner „Zaktualizowano..."
+- **Event za ≤14 dni** (klient zablokowany czasowo, to zostaje z definicji):
+  1. Pracownik: „Wprowadź poprawki" → dodaje pakiet w Excelu
+  2. Klient NIE MOŻE kliknąć (blokada czasowa 14 dni dla klienta pozostaje)
+  3. Pracownik sam zaznacza wybory w panelu agendy (checkboxy pod nazwą „Wybory klienta")
+  4. „Zatwierdź zmiany"
+
+**Ograniczenia (na MVP):**
+- Klient nie dostaje maila/SMS-a „twoja agenda została zaktualizowana" — musisz go zawiadomić ręcznie
+- Brak historii zmian (kto co zmienił) — tylko `updatedAt` + baner kuchni z datą
+- Brak notyfikacji dla innych pracowników (pracownik klika sam, wie co robi)
+
 **UWAGA:** Baza danych wymaga migracji `add_offer_items` + `add_hall_and_timeto_to_offer_items` + `add_vat_rate_to_menu_models`. Uruchom `npm run db:migrate` po pobraniu kodu.
 
 **Pełny plan implementacji:** patrz `PLAN.md` w katalogu projektu.

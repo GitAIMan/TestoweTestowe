@@ -38,6 +38,14 @@ export function StepHalls({ data, onChange }: Props) {
   }
 
   const eventDates = dateFrom && dateTo ? getDatesInRange(dateFrom, dateTo) : [];
+  const totalPeople = (data.adultsCount ?? 0) + (data.childrenCount ?? 0);
+
+  const sortedAvailability = [...availability].sort((a, b) => {
+    const aTooSmall = totalPeople > 0 && a.capacity < totalPeople;
+    const bTooSmall = totalPeople > 0 && b.capacity < totalPeople;
+    if (aTooSmall === bTooSmall) return 0;
+    return aTooSmall ? 1 : -1;
+  });
 
   useEffect(() => {
     if (!dateFrom || !dateTo) return;
@@ -95,6 +103,9 @@ export function StepHalls({ data, onChange }: Props) {
       <h2 className="text-lg font-semibold">Sale</h2>
       <p className="text-sm text-muted-foreground">
         Wybierz sale na poszczególne dni wydarzenia. Zielony = wolna, czerwony = zajęta.
+        {totalPeople > 0 && (
+          <> Liczba gości: <strong>{totalPeople}</strong>. Sale o mniejszej pojemności są wyciszone.</>
+        )}
       </p>
 
       {loading ? (
@@ -116,10 +127,19 @@ export function StepHalls({ data, onChange }: Props) {
               </tr>
             </thead>
             <tbody>
-              {availability.map((hall) => (
-                <tr key={hall.id}>
+              {sortedAvailability.map((hall) => {
+                const tooSmall = totalPeople > 0 && hall.capacity < totalPeople;
+                return (
+                <tr key={hall.id} className={tooSmall ? "opacity-50" : ""}>
                   <td className="border p-2">
-                    <div className="font-medium">{hall.name}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {hall.name}
+                      {tooSmall && (
+                        <Badge variant="secondary" className="text-[10px] font-normal">
+                          mała
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {hall.capacity} os. · {Number(hall.pricePerDay).toFixed(0)} zł/dzień
                     </div>
@@ -143,6 +163,7 @@ export function StepHalls({ data, onChange }: Props) {
                             size="sm"
                             className="h-7 text-xs"
                             onClick={() => addHall(hall, date)}
+                            title={tooSmall ? `Sala na ${hall.capacity} os., gości ${totalPeople}` : undefined}
                           >
                             <Plus className="h-3 w-3 mr-1" />
                             Dodaj
@@ -152,7 +173,8 @@ export function StepHalls({ data, onChange }: Props) {
                     );
                   })}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

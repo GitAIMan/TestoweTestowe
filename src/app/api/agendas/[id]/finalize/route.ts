@@ -13,29 +13,16 @@ export async function POST(
 
   const { id } = await params;
 
-  // Pobierz agendę wstępną z blokami i pakietami
+  // Pobierz agendę wstępną wraz z ofertą + itemami (dla walidacji sekcji CHOOSE)
   const agenda = await prisma.agenda.findUnique({
     where: { id },
     include: {
       offer: {
-        include: {
-          offerPackages: {
-            include: {
-              package: {
-                include: {
-                  sections: {
-                    where: { isActive: true },
-                  },
-                },
-              },
-            },
+        select: {
+          id: true,
+          offerItems: {
+            select: { sourceType: true, sourceId: true },
           },
-        },
-      },
-      blocks: {
-        include: {
-          blockPackages: true,
-          equipment: true,
         },
       },
     },
@@ -64,23 +51,39 @@ export async function POST(
     );
   }
 
-  // Walidacja: wszystkie sekcje CHOOSE_X_FROM_Y muszą mieć kompletne wybory
-  const chooseXSections = agenda.offer.offerPackages.flatMap((op) =>
-    op.package.sections.filter((s) => s.selectionMode === "CHOOSE_X_FROM_Y")
+  // Zbierz unikalne ID pakietów używanych w ofercie (z OfferItem sourceType=PACKAGE)
+  const packageIds = Array.from(
+    new Set(
+      agenda.offer.offerItems
+        .filter((it) => it.sourceType === "PACKAGE" && it.sourceId)
+        .map((it) => it.sourceId as string)
+    )
   );
 
+  // Pobierz sekcje CHOOSE_X_FROM_Y z tych pakietów
+  const chooseXSections = packageIds.length
+    ? await prisma.section.findMany({
+        where: {
+          packageId: { in: packageIds },
+          selectionMode: "CHOOSE_X_FROM_Y",
+          isActive: true,
+        },
+        select: { id: true, name: true, selectionCount: true },
+      })
+    : [];
+
+  // Wybory klienta
   const selections = await prisma.agendaSectionSelection.findMany({
     where: { agendaId: id },
     include: { items: true },
   });
 
+  // Walidacja: wszystkie sekcje CHOOSE_X_FROM_Y muszą mieć kompletne wybory
   for (const section of chooseXSections) {
     const sel = selections.find((s) => s.sectionId === section.id);
     if (!sel || !sel.completedAt) {
       return NextResponse.json(
-        {
-          error: `Sekcja "${section.name}" nie ma kompletnych wyborów klienta`,
-        },
+        { error: `Sekcja "${section.name}" nie ma kompletnych wyborów klienta` },
         { status: 400 }
       );
     }
@@ -94,7 +97,7 @@ export async function POST(
     }
   }
 
-  // Utwórz agendę finalną z kopią bloków
+  // Utwórz agendę finalną — kopiujemy tylko wybory klienta (harmonogram jest w OfferItem)
   const finalAgenda = await prisma.$transaction(async (tx) => {
     const newAgenda = await tx.agenda.create({
       data: {
@@ -105,46 +108,6 @@ export async function POST(
         notes: agenda.notes,
       },
     });
-
-    // Skopiuj bloki
-    for (const block of agenda.blocks) {
-      const newBlock = await tx.agendaBlock.create({
-        data: {
-          agendaId: newAgenda.id,
-          date: block.date,
-          timeFrom: block.timeFrom,
-          timeTo: block.timeTo,
-          title: block.title,
-          description: block.description,
-          hallId: block.hallId,
-          personCount: block.personCount,
-          sortOrder: block.sortOrder,
-        },
-      });
-
-      // Skopiuj pakiety bloku
-      if (block.blockPackages.length > 0) {
-        await tx.agendaBlockPackage.createMany({
-          data: block.blockPackages.map((bp) => ({
-            agendaBlockId: newBlock.id,
-            offerPackageId: bp.offerPackageId,
-            sortOrder: bp.sortOrder,
-          })),
-        });
-      }
-
-      // Skopiuj wyposażenie
-      if (block.equipment.length > 0) {
-        await tx.agendaBlockEquipment.createMany({
-          data: block.equipment.map((e) => ({
-            agendaBlockId: newBlock.id,
-            name: e.name,
-            quantity: e.quantity,
-            notes: e.notes,
-          })),
-        });
-      }
-    }
 
     // Skopiuj wybory klienta
     for (const sel of selections) {

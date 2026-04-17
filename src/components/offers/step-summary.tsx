@@ -154,7 +154,6 @@ export function StepSummary({ data, onChange }: Props) {
         <Textarea
           value={data.notes}
           onChange={(e) => onChange({ notes: e.target.value })}
-          placeholder="Dodatkowe informacje do oferty..."
           rows={3}
         />
       </div>

@@ -92,10 +92,22 @@ export async function GET(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buffer = await renderToBuffer(element as any);
 
+  const rawName = `umowa-${contract.clientFullName}`;
+  const asciiName = rawName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ł/g, "l")
+    .replace(/Ł/g, "L")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "umowa";
+  const utf8Name = encodeURIComponent(`${rawName}.pdf`);
+
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="umowa-${contract.clientFullName.replace(/\s+/g, "-")}.pdf"`,
+      "Content-Disposition": `inline; filename="${asciiName}.pdf"; filename*=UTF-8''${utf8Name}`,
+      "Content-Length": String(buffer.length),
     },
   });
 }

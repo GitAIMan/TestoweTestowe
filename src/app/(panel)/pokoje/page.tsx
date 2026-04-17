@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PriceInput } from "@/components/ui/price-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
@@ -207,7 +208,6 @@ export default function PokojePage() {
                 id="name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="np. Pokój 101"
               />
             </div>
             <div>
@@ -216,21 +216,14 @@ export default function PokojePage() {
                 id="type"
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
-                placeholder="np. 2-osobowy Standard"
               />
             </div>
             <div>
               <Label htmlFor="price">Cena za noc (PLN) *</Label>
-              <Input
+              <PriceInput
                 id="price"
-                type="number"
-                step="0.01"
-                min="0"
                 value={form.pricePerNight}
-                onChange={(e) =>
-                  setForm({ ...form, pricePerNight: e.target.value })
-                }
-                placeholder="np. 250.00"
+                onChange={(next) => setForm({ ...form, pricePerNight: next })}
               />
             </div>
             <div>
@@ -241,7 +234,6 @@ export default function PokojePage() {
                 onChange={(e) =>
                   setForm({ ...form, description: e.target.value })
                 }
-                placeholder="Dodatkowe informacje o pokoju..."
               />
             </div>
             <div className="flex justify-end gap-2">

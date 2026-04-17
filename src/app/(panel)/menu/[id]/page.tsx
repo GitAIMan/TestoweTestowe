@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PriceInput } from "@/components/ui/price-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -157,11 +158,10 @@ function InlineForm({
 
         <div>
           <Label className="text-xs font-medium">Cena netto (PLN)</Label>
-          <Input
-            type="number" step="0.01" min="0"
+          <PriceInput
             value={priceField}
-            onChange={(e) => setPriceField(e.target.value)}
-            placeholder="0.00"
+            onChange={(next) => setPriceField(next)}
+            placeholder="0,00"
             className="mt-1 h-9 rounded-lg text-sm"
           />
         </div>
@@ -203,7 +203,6 @@ function InlineForm({
                   type="number" min="1"
                   value={countField}
                   onChange={(e) => setCountField(e.target.value)}
-                  placeholder="np. 1"
                   className="mt-1 h-9 rounded-lg text-sm"
                 />
               </div>
@@ -362,12 +361,12 @@ function PackageInlineForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label className="text-xs font-medium">Nazwa pakietu *</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="np. Pakiet Gold" className="mt-1 h-9 rounded-lg text-sm" autoFocus />
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 h-9 rounded-lg text-sm" autoFocus />
         </div>
         <div className="sm:col-span-1 flex gap-3">
           <div className="flex-1">
             <Label className="text-xs font-medium">Cena netto</Label>
-            <Input type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" className="mt-1 h-9 rounded-lg text-sm" />
+            <PriceInput value={price} onChange={(next) => setPrice(next)} placeholder="0,00" className="mt-1 h-9 rounded-lg text-sm" />
           </div>
           <div className="w-24">
             <Label className="text-xs font-medium">VAT</Label>
@@ -406,11 +405,11 @@ function PackageInlineForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
                   <Label className="text-xs font-medium">Nazwa sekcji *</Label>
-                  <Input value={sec.name} onChange={(e) => updateSection(si, "name", e.target.value)} placeholder="np. Zupy" className="mt-1 h-9 rounded-lg text-sm" />
+                  <Input value={sec.name} onChange={(e) => updateSection(si, "name", e.target.value)} className="mt-1 h-9 rounded-lg text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs font-medium">Cena netto</Label>
-                  <Input type="number" step="0.01" min="0" value={sec.price} onChange={(e) => updateSection(si, "price", e.target.value)} placeholder="0.00" className="mt-1 h-9 rounded-lg text-sm" />
+                  <PriceInput value={sec.price} onChange={(next) => updateSection(si, "price", next)} placeholder="0,00" className="mt-1 h-9 rounded-lg text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs font-medium">VAT</Label>
@@ -435,7 +434,7 @@ function PackageInlineForm({
                 {sec.selectionMode === "CHOOSE_X_FROM_Y" && (
                   <div>
                     <Label className="text-xs font-medium">Ile wybiera? *</Label>
-                    <Input type="number" min="1" value={sec.selectionCount} onChange={(e) => updateSection(si, "selectionCount", e.target.value)} placeholder="np. 1" className="mt-1 h-9 rounded-lg text-sm" />
+                    <Input type="number" min="1" value={sec.selectionCount} onChange={(e) => updateSection(si, "selectionCount", e.target.value)} className="mt-1 h-9 rounded-lg text-sm" />
                   </div>
                 )}
               </div>
@@ -471,7 +470,7 @@ function PackageInlineForm({
                           />
                         </div>
                         <div>
-                          <Input type="number" step="0.01" min="0" value={item.price} onChange={(e) => updateItem(si, ii, "price", e.target.value)} placeholder="Cena" className="h-8 rounded-lg text-xs" />
+                          <PriceInput value={item.price} onChange={(next) => updateItem(si, ii, "price", next)} placeholder="Cena" className="h-8 rounded-lg text-xs" />
                         </div>
                         <div>
                           <Select value={item.vatRate} onValueChange={(v) => v && updateItem(si, ii, "vatRate", v)}>

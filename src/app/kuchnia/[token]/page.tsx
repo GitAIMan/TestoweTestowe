@@ -1,44 +1,37 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { CheckCircle, UtensilsCrossed, Clock, Monitor } from "lucide-react";
+import { CheckCircle, UtensilsCrossed, Clock, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 
-interface MenuItem {
+interface OfferItem {
   id: string;
+  day: number;
+  date: string | null;
+  sortOrder: number;
   name: string;
-}
-
-interface Section {
-  id: string;
-  name: string;
-  selectionMode: string;
-  selectionCount: number | null;
-  items: MenuItem[];
-}
-
-interface OfferPackage {
-  id: string;
-  package: {
-    name: string;
-    offerType: { name: string };
-    sections: Section[];
-  };
-}
-
-interface Block {
-  id: string;
-  date: string;
-  timeFrom: string;
-  timeTo: string | null;
-  title: string;
   description: string | null;
-  hall: { name: string } | null;
-  personCount: number | null;
-  blockPackages: Array<{ offerPackageId: string }>;
-  equipment: Array<{ name: string; quantity: number }>;
+  timeFrom: string | null;
+  timeTo: string | null;
+  quantity: number;
+  sourceType: string | null;
+  sourceId: string | null;
+  hall: { id: string; name: string } | null;
+}
+
+interface CompositionSection {
+  id: string;
+  name: string;
+  selectionMode: "ALL_INCLUDED" | "CHOOSE_X_FROM_Y" | string;
+  selectionCount: number | null;
+  items: Array<{ id: string; name: string }>;
+}
+
+interface Composition {
+  packageName: string;
+  offerTypeName: string;
+  sections: CompositionSection[];
 }
 
 interface AgendaData {
@@ -52,19 +45,16 @@ interface AgendaData {
       eventDateTo: string;
       adultsCount: number;
       childrenCount: number;
-      offerPackages: OfferPackage[];
+      items: OfferItem[];
     };
-    blocks: Block[];
   };
+  packageCompositions: Record<string, Composition>;
   selections: Array<{
     sectionId: string;
     items: Array<{ menuItemId: string }>;
   }>;
-  hotel: {
-    hotelName: string;
-    primaryColor: string;
-    logoUrl?: string | null;
-  } | null;
+  hotel: { hotelName: string; primaryColor: string; logoUrl?: string | null } | null;
+  lastModifiedAt?: string;
 }
 
 export default function KuchniaPage({
@@ -110,8 +100,9 @@ export default function KuchniaPage({
     );
   }
 
-  const { agenda, selections, hotel } = data;
+  const { agenda, selections, hotel, packageCompositions } = data;
   const offer = agenda.offer;
+  const personCount = offer.adultsCount + offer.childrenCount;
 
   // Mapa wyborów: sectionId → Set<menuItemId>
   const selectionMap = new Map<string, Set<string>>();
@@ -119,16 +110,13 @@ export default function KuchniaPage({
     selectionMap.set(sel.sectionId, new Set(sel.items.map((i) => i.menuItemId)));
   }
 
-  // Grupuj bloki po dniach
-  const blocksByDate = agenda.blocks.reduce(
-    (acc, block) => {
-      const date = block.date.split("T")[0];
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(block);
-      return acc;
-    },
-    {} as Record<string, Block[]>
-  );
+  // Grupuj items po dniu
+  const dayMap = new Map<number, { date: string | null; items: OfferItem[] }>();
+  for (const item of offer.items) {
+    if (!dayMap.has(item.day)) dayMap.set(item.day, { date: item.date, items: [] });
+    dayMap.get(item.day)!.items.push(item);
+  }
+  const days = Array.from(dayMap.entries()).sort(([a], [b]) => a - b);
 
   return (
     <div className="min-h-screen bg-white">
@@ -157,126 +145,135 @@ export default function KuchniaPage({
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-        {/* Harmonogram dzień po dniu */}
-        {Object.entries(blocksByDate).map(([date, dayBlocks]) => (
-          <div key={date}>
-            <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              {new Date(date).toLocaleDateString("pl-PL", {
+      {data.lastModifiedAt && (
+        <div className="border-b border-border bg-amber-50 print:hidden">
+          <div className="max-w-4xl mx-auto px-6 py-2.5 text-sm flex items-center gap-2 text-amber-900">
+            <Clock className="h-4 w-4" />
+            <span>
+              Zaktualizowano:{" "}
+              <strong>
+                {new Date(data.lastModifiedAt).toLocaleDateString("pl-PL", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </strong>
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+        {days.length === 0 && (
+          <Card>
+            <CardContent className="pt-4 text-sm text-muted-foreground">
+              Harmonogram jeszcze nie jest gotowy.
+            </CardContent>
+          </Card>
+        )}
+
+        {days.map(([dayNum, dayData]) => {
+          const label = dayData.date
+            ? new Date(dayData.date).toLocaleDateString("pl-PL", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
                 year: "numeric",
-              })}
-            </h2>
+              })
+            : `Dzień ${dayNum}`;
+          return (
+            <div key={dayNum}>
+              <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                <span className="text-primary">Dzień {dayNum}</span>
+                <span className="text-foreground">· {label}</span>
+              </h2>
 
-            <div className="space-y-3">
-              {dayBlocks.map((block) => {
-                // Pakiety przypisane do tego bloku
-                const blockPkgs = block.blockPackages
-                  .map((bp) =>
-                    offer.offerPackages.find((op) => op.id === bp.offerPackageId)
-                  )
-                  .filter(Boolean) as OfferPackage[];
-
-                return (
-                  <Card key={block.id}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center justify-between">
-                        <span>
-                          {block.timeFrom}
-                          {block.timeTo && ` — ${block.timeTo}`} · {block.title}
-                        </span>
-                        <div className="flex gap-2 text-sm font-normal">
-                          {block.hall && (
-                            <Badge variant="outline">{block.hall.name}</Badge>
-                          )}
-                          {block.personCount && (
-                            <Badge variant="secondary">
-                              {block.personCount} os.
-                            </Badge>
-                          )}
-                        </div>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {block.description && (
-                        <p className="text-sm text-muted-foreground">
-                          {block.description}
-                        </p>
-                      )}
-
-                      {/* Menu z wyborami klienta */}
-                      {blockPkgs.map((op) => (
-                        <div key={op.id}>
-                          <p className="text-sm font-medium mb-1">
-                            {op.package.name} ({op.package.offerType.name})
-                          </p>
-                          {op.package.sections.map((sec) => {
+              <div className="space-y-3">
+                {dayData.items.map((item) => {
+                  const isPackage = item.sourceType === "PACKAGE";
+                  const comp =
+                    isPackage && item.sourceId ? packageCompositions[item.sourceId] : null;
+                  const time = item.timeFrom
+                    ? `${item.timeFrom}${item.timeTo ? ` — ${item.timeTo}` : ""}`
+                    : null;
+                  return (
+                    <Card key={item.id}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex flex-wrap items-center justify-between gap-2">
+                          <span className="flex items-center gap-2">
+                            {time && <span className="text-primary">{time}</span>}
+                            <span>· {item.name}</span>
+                          </span>
+                          <div className="flex gap-2 text-sm font-normal">
+                            {item.hall && (
+                              <Badge variant="outline">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                {item.hall.name}
+                              </Badge>
+                            )}
+                            {isPackage && (
+                              <Badge variant="secondary">{personCount} os.</Badge>
+                            )}
+                          </div>
+                        </CardTitle>
+                      </CardHeader>
+                      {comp && comp.sections.length > 0 && (
+                        <CardContent className="space-y-3">
+                          {comp.sections.map((sec) => {
                             const selectedIds = selectionMap.get(sec.id);
-                            const isChoose =
-                              sec.selectionMode === "CHOOSE_X_FROM_Y";
-
-                            // Filtruj pozycje: ALL_INCLUDED = wszystkie, CHOOSE = tylko wybrane
+                            const isChoose = sec.selectionMode === "CHOOSE_X_FROM_Y";
                             const displayItems = isChoose
-                              ? sec.items.filter(
-                                  (i) => selectedIds?.has(i.id)
-                                )
+                              ? sec.items.filter((i) => selectedIds?.has(i.id))
                               : sec.items;
-
-                            if (displayItems.length === 0) return null;
-
+                            if (displayItems.length === 0) {
+                              return (
+                                <div key={sec.id} className="ml-1">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                                    {sec.name}
+                                    {isChoose && (
+                                      <span className="ml-1 italic">
+                                        (klient jeszcze nie wybrał)
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              );
+                            }
                             return (
-                              <div key={sec.id} className="ml-4 mb-2">
+                              <div key={sec.id} className="ml-1">
                                 <p className="text-xs font-medium text-muted-foreground mb-1">
                                   {sec.name}
                                   {isChoose && (
-                                    <span className="ml-1">
-                                      (wybór klienta)
-                                    </span>
+                                    <span className="ml-1">(wybór klienta)</span>
                                   )}
                                 </p>
                                 <ul className="space-y-0.5">
-                                  {displayItems.map((item) => (
+                                  {displayItems.map((mi) => (
                                     <li
-                                      key={item.id}
+                                      key={mi.id}
                                       className="flex items-center gap-2 text-sm"
                                     >
                                       <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                      {item.name}
+                                      {mi.name}
                                     </li>
                                   ))}
                                 </ul>
                               </div>
                             );
                           })}
-                        </div>
-                      ))}
-
-                      {/* Wyposażenie */}
-                      {block.equipment.length > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
-                          <Monitor className="h-3 w-3" />
-                          {block.equipment
-                            .map(
-                              (e) =>
-                                `${e.name}${e.quantity > 1 ? ` ×${e.quantity}` : ""}`
-                            )
-                            .join(", ")}
-                        </div>
+                        </CardContent>
                       )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
+          );
+        })}
 
-            <Separator className="mt-6" />
-          </div>
-        ))}
-
-        {/* Stopka */}
         <div className="text-center text-xs text-muted-foreground pt-4">
           <p>{hotel?.hotelName}</p>
           <p>

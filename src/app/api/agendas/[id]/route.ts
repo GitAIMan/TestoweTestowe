@@ -32,6 +32,9 @@ export async function GET(
             },
             orderBy: { sortOrder: "asc" },
           },
+          offerHalls: {
+            include: { hall: { select: { id: true, name: true } } },
+          },
         },
       },
       createdBy: { select: { firstName: true, lastName: true } },

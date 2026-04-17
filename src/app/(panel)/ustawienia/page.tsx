@@ -110,7 +110,6 @@ export default function UstawieniaPage() {
               <Input
                 value={form.logoUrl || ""}
                 onChange={(e) => updateField("logoUrl", e.target.value)}
-                placeholder="https://..."
               />
             </div>
             <div>
@@ -118,7 +117,6 @@ export default function UstawieniaPage() {
               <Input
                 value={form.nip || ""}
                 onChange={(e) => updateField("nip", e.target.value)}
-                placeholder="np. 1234567890"
               />
             </div>
           </CardContent>
@@ -143,7 +141,6 @@ export default function UstawieniaPage() {
               <Input
                 value={form.contactPhone || ""}
                 onChange={(e) => updateField("contactPhone", e.target.value)}
-                placeholder="np. +48 600 100 200"
               />
             </div>
           </CardContent>
@@ -168,7 +165,6 @@ export default function UstawieniaPage() {
                 <Input
                   value={form.postalCode || ""}
                   onChange={(e) => updateField("postalCode", e.target.value)}
-                  placeholder="00-000"
                 />
               </div>
               <div>
@@ -285,7 +281,6 @@ export default function UstawieniaPage() {
               rows={8}
               value={form.regulamin || ""}
               onChange={(e) => updateField("regulamin", e.target.value)}
-              placeholder="Treść regulaminu hotelu..."
             />
           </CardContent>
         </Card>
@@ -299,7 +294,6 @@ export default function UstawieniaPage() {
               rows={8}
               value={form.footerText || ""}
               onChange={(e) => updateField("footerText", e.target.value)}
-              placeholder="Tekst wyświetlany w stopce PDF-ów i dokumentów..."
             />
           </CardContent>
         </Card>

@@ -18,7 +18,6 @@ export function StepClient({ data, onChange }: Props) {
         <Input
           value={data.clientName}
           onChange={(e) => onChange({ clientName: e.target.value })}
-          placeholder="np. Jan Kowalski"
         />
       </div>
       <div>
@@ -27,7 +26,6 @@ export function StepClient({ data, onChange }: Props) {
           type="email"
           value={data.clientEmail}
           onChange={(e) => onChange({ clientEmail: e.target.value })}
-          placeholder="np. jan@firma.pl"
         />
       </div>
       <div>
@@ -35,7 +33,6 @@ export function StepClient({ data, onChange }: Props) {
         <Input
           value={data.clientPhone}
           onChange={(e) => onChange({ clientPhone: e.target.value })}
-          placeholder="np. +48 600 100 200"
         />
       </div>
       <div>
@@ -43,7 +40,6 @@ export function StepClient({ data, onChange }: Props) {
         <Input
           value={data.clientCompany}
           onChange={(e) => onChange({ clientCompany: e.target.value })}
-          placeholder="np. ABC Sp. z o.o."
         />
       </div>
     </div>

@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PriceInput } from "@/components/ui/price-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -293,7 +294,6 @@ export default function SalePage() {
                 id="hallName"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="np. Sala Balowa"
               />
             </div>
             <div>
@@ -306,21 +306,14 @@ export default function SalePage() {
                 onChange={(e) =>
                   setForm({ ...form, capacity: e.target.value })
                 }
-                placeholder="np. 200"
               />
             </div>
             <div>
               <Label htmlFor="hallPrice">Cena za dzień (PLN) *</Label>
-              <Input
+              <PriceInput
                 id="hallPrice"
-                type="number"
-                step="0.01"
-                min="0"
                 value={form.pricePerDay}
-                onChange={(e) =>
-                  setForm({ ...form, pricePerDay: e.target.value })
-                }
-                placeholder="np. 3000.00"
+                onChange={(next) => setForm({ ...form, pricePerDay: next })}
               />
             </div>
             <div>
@@ -331,7 +324,6 @@ export default function SalePage() {
                 onChange={(e) =>
                   setForm({ ...form, description: e.target.value })
                 }
-                placeholder="Dodatkowe informacje o sali..."
               />
             </div>
             <div className="flex justify-end gap-2">

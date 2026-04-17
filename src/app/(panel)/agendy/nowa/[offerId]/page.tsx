@@ -560,7 +560,6 @@ export default function NowaAgendaPage({
                 onChange={(e) =>
                   setBlockForm({ ...blockForm, title: e.target.value })
                 }
-                placeholder="np. Obiad, Wynajem sali, Przerwa kawowa"
               />
             </div>
             <div>

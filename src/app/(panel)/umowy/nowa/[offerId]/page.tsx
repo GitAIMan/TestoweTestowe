@@ -8,6 +8,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PriceInput } from "@/components/ui/price-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -174,7 +175,6 @@ export default function NowaUmowaPage({
                 onChange={(e) =>
                   setForm({ ...form, clientAddress: e.target.value })
                 }
-                placeholder="ul. Przykładowa 1, 00-000 Miasto"
               />
             </div>
             <div>
@@ -184,7 +184,6 @@ export default function NowaUmowaPage({
                 onChange={(e) =>
                   setForm({ ...form, clientNip: e.target.value })
                 }
-                placeholder="np. 1234567890"
               />
             </div>
             <div>
@@ -206,15 +205,9 @@ export default function NowaUmowaPage({
           <CardContent className="space-y-4">
             <div>
               <Label>Kwota zaliczki (PLN)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
+              <PriceInput
                 value={form.advanceAmount}
-                onChange={(e) =>
-                  setForm({ ...form, advanceAmount: e.target.value })
-                }
-                placeholder="np. 5000.00"
+                onChange={(next) => setForm({ ...form, advanceAmount: next })}
               />
             </div>
             <div>
@@ -266,7 +259,6 @@ export default function NowaUmowaPage({
                 onChange={(e) =>
                   setForm({ ...form, paymentTerms: e.target.value })
                 }
-                placeholder="np. Pozostała kwota płatna 7 dni przed wydarzeniem..."
                 rows={3}
               />
             </div>
@@ -277,7 +269,6 @@ export default function NowaUmowaPage({
                 onChange={(e) =>
                   setForm({ ...form, specialConditions: e.target.value })
                 }
-                placeholder="Dodatkowe ustalenia..."
                 rows={3}
               />
             </div>

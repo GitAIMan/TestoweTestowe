@@ -46,12 +46,51 @@ export async function GET(
     adultsCount: offer.adultsCount,
     childrenCount: offer.childrenCount,
     totalPrice: offer.totalPrice.toString(),
-    notes: offer.notes,
+    notes: null,
     createdAt: offer.createdAt.toISOString(),
   };
 
+  // Fallback: dla pakietów bez description dociągamy kompozycję z menu
+  const pkgIdsMissingComp = offerItems
+    .filter((i) => i.sourceType === "PACKAGE" && !i.description && i.sourceId)
+    .map((i) => i.sourceId as string);
+
+  const compMap = new Map<string, string>();
+  if (pkgIdsMissingComp.length > 0) {
+    const pkgs = await prisma.package.findMany({
+      where: { id: { in: pkgIdsMissingComp } },
+      include: {
+        offerType: { select: { name: true } },
+        sections: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          include: { items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
+        },
+      },
+    });
+    for (const p of pkgs) {
+      compMap.set(
+        p.id,
+        JSON.stringify({
+          packageName: p.name,
+          offerTypeName: p.offerType?.name || "",
+          sections: p.sections.map((s) => ({
+            name: s.name,
+            mode: s.selectionMode,
+            count: s.selectionCount,
+            items: s.items.map((it) => it.name),
+          })),
+        })
+      );
+    }
+  }
+
   const serializedItems = offerItems.map((item) => ({
     name: item.name,
+    description:
+      item.description ||
+      (item.sourceType === "PACKAGE" && item.sourceId
+        ? compMap.get(item.sourceId) || null
+        : null),
     quantity: item.quantity,
     unitPrice: item.unitPrice.toString(),
     vatRate: item.vatRate,
@@ -71,10 +110,22 @@ export async function GET(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buffer = await renderToBuffer(element as any);
 
+  const rawName = `oferta-${offer.clientName}`;
+  const asciiName = rawName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ł/g, "l")
+    .replace(/Ł/g, "L")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "oferta";
+  const utf8Name = encodeURIComponent(`${rawName}.pdf`);
+
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="oferta-${offer.clientName.replace(/\s+/g, "-")}.pdf"`,
+      "Content-Disposition": `attachment; filename="${asciiName}.pdf"; filename*=UTF-8''${utf8Name}`,
+      "Content-Length": String(buffer.length),
     },
   });
 }

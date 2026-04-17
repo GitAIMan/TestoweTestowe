@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, use, useState, useEffect } from "react";
+import { Fragment, use, useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -26,10 +26,28 @@ import {
   CookingPot,
   StickyNote,
   HelpCircle,
+  GripVertical,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PriceInput } from "@/components/ui/price-input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -238,6 +256,26 @@ export default function OfferEditPage({
   const { data: halls } = useSWR<HallOption[]>("/api/halls", fetcher);
   const { data: menuData } = useSWR<OfferTypeData[]>("/api/menu/offer-types", fetcher);
 
+  // Mapa packageId → kompozycja (fallback dla starych ofert bez description)
+  const menuCompositionMap = useMemo(() => {
+    const m = new Map<string, PackageComposition>();
+    (menuData || []).forEach((ot) => {
+      (ot.packages || []).forEach((pkg) => {
+        m.set(pkg.id, {
+          packageName: pkg.name,
+          offerTypeName: ot.name,
+          sections: (pkg.sections || []).map((s) => ({
+            name: s.name,
+            mode: s.selectionMode,
+            count: s.selectionCount,
+            items: (s.items || []).map((it) => it.name),
+          })),
+        });
+      });
+    });
+    return m;
+  }, [menuData]);
+
   const [items, setItems] = useState<OfferItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [notesValue, setNotesValue] = useState("");
@@ -260,6 +298,12 @@ export default function OfferEditPage({
 
   // Guide
   const [guideOpen, setGuideOpen] = useState(false);
+
+  // DnD sensors — muszą być przed early-return (rules of hooks)
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useEffect(() => {
     if (serverItems) setItems(serverItems);
@@ -556,6 +600,47 @@ export default function OfferEditPage({
     });
   }
 
+  // ==================== DRAG & DROP ====================
+
+  async function handleDragEnd(event: DragEndEvent, day: number) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const dayItems = items
+      .filter((i) => i.day === day)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const oldIndex = dayItems.findIndex((i) => i.id === active.id);
+    const newIndex = dayItems.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = [...dayItems];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    const idToNewSort = new Map<string, number>();
+    reordered.forEach((it, idx) => idToNewSort.set(it.id, idx));
+
+    const newItems = items.map((it) =>
+      idToNewSort.has(it.id) ? { ...it, sortOrder: idToNewSort.get(it.id)! } : it
+    );
+    setItems(newItems);
+    // Zwiń pakiety dla przerysowania
+    setExpandedRows(new Set());
+
+    try {
+      const res = await fetch(`/api/offers/${id}/items`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: newItems }),
+      });
+      if (!res.ok) throw new Error();
+      mutateItems();
+      toast.success("Kolejność zapisana");
+    } catch {
+      toast.error("Błąd zapisu kolejności");
+    }
+  }
+
   // ==================== TOTALS ====================
 
   const personCount = offer.adultsCount + offer.childrenCount;
@@ -563,7 +648,8 @@ export default function OfferEditPage({
   let totalVatD = new Decimal(0);
   for (const i of items) {
     const mul = i.sourceType === "PACKAGE" ? personCount : 1;
-    const netto = new Decimal(i.unitPrice).mul(i.quantity).mul(mul);
+    const price = i.unitPrice === "" || i.unitPrice === "-" ? "0" : i.unitPrice;
+    const netto = new Decimal(price).mul(i.quantity).mul(mul);
     totalNettoD = totalNettoD.add(netto);
     totalVatD = totalVatD.add(netto.mul(new Decimal(i.vatRate).div(100)));
   }
@@ -571,14 +657,18 @@ export default function OfferEditPage({
   const totalVat = totalVatD.toNumber();
   const totalBrutto = totalNettoD.add(totalVatD).toNumber();
 
-  // Blokada edycji 14 dni przed wydarzeniem
+  // Blokada edycji:
+  //  - pracownik może edytować DOPÓKI agenda FINALNA nie jest zatwierdzona (isLocked)
+  //  - blokada 14 dni dotyczy tylko klienta (w jego widoku publicznym)
+  //  - po zakończeniu wydarzenia tabela zablokowana dla wszystkich
   const eventDate = new Date(offer.eventDateFrom);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   eventDate.setHours(0, 0, 0, 0);
   const daysLeft = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const isLocked = daysLeft <= 14;
   const isFinished = daysLeft <= 0;
+  const agendaIsFinalLocked = agenda?.type === "FINALNA" && agenda?.isLocked;
+  const isLocked = Boolean(agendaIsFinalLocked) || isFinished;
 
   // Oblicz aktualny krok dla przewodnika
   function getCurrentStep(): number {
@@ -670,7 +760,7 @@ export default function OfferEditPage({
           <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" onClick={() => setGuideOpen(true)} title="Przewodnik krok po kroku">
             <HelpCircle className="h-5 w-5" />
           </Button>
-          <a href={`/api/offers/${id}/pdf`} download>
+          <a href={`/api/offers/${id}/pdf`} download={`oferta-${id}.pdf`}>
             <Button variant="outline" size="sm">
               <FileDown className="mr-1 h-4 w-4" />
               PDF
@@ -685,7 +775,7 @@ export default function OfferEditPage({
         </div>
       </div>
 
-      {/* Banner odliczania */}
+      {/* Banner odliczania / statusu */}
       {isFinished ? (
         <div className="rounded-xl px-4 py-3 text-sm bg-muted text-muted-foreground flex items-center gap-3">
           <CalendarDays className="h-5 w-5" />
@@ -693,13 +783,28 @@ export default function OfferEditPage({
             <span className="font-semibold">Wydarzenie zakończone</span>
           </div>
         </div>
-      ) : isLocked ? (
-        <div className="rounded-xl px-4 py-3 text-sm bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 flex items-center gap-3">
+      ) : agendaIsFinalLocked ? (
+        <div className="rounded-xl px-4 py-3 text-sm bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 flex items-center gap-3">
           <Lock className="h-5 w-5" />
+          <div>
+            <span className="font-semibold">Agenda zatwierdzona</span>
+            <span className="mx-2">·</span>
+            <span>
+              Aby edytować — kliknij „Wprowadź poprawki" w{" "}
+              <Link href={`/agendy/${agenda?.id}`} className="underline">
+                agendzie
+              </Link>
+              .
+            </span>
+          </div>
+        </div>
+      ) : daysLeft <= 14 ? (
+        <div className="rounded-xl px-4 py-3 text-sm bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 flex items-center gap-3">
+          <CalendarDays className="h-5 w-5" />
           <div>
             <span className="font-semibold">Wydarzenie za {daysLeft} {daysLeft === 1 ? "dzień" : "dni"}</span>
             <span className="mx-2">·</span>
-            <span>Edycja zablokowana — mniej niż 14 dni do wydarzenia</span>
+            <span>Klient nie może już zmieniać wyborów. Pamiętaj o deadline'ach kuchni.</span>
           </div>
         </div>
       ) : (
@@ -772,11 +877,24 @@ export default function OfferEditPage({
 
             {agenda && (
               <>
-                <Link href={`/agendy/${agenda.id}`}>
-                  <Badge variant="info" className="cursor-pointer">
-                    Agenda: {agenda.type === "WSTEPNA" ? "Wstępna" : "Finalna"}
-                  </Badge>
-                </Link>
+                {agenda.type === "WSTEPNA" ? (
+                  <Link href={`/agendy/${agenda.id}`}>
+                    <Button
+                      size="sm"
+                      className="relative animate-pulse shadow-[0_0_0_3px_rgba(209,100,112,0.25)]"
+                    >
+                      <CalendarDays className="mr-1 h-4 w-4" />
+                      Otwórz agendę wstępną
+                      <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-white/80" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href={`/agendy/${agenda.id}`}>
+                    <Badge variant="success" className="cursor-pointer">
+                      Agenda finalna
+                    </Badge>
+                  </Link>
+                )}
                 {!isLocked && (
                   <Button size="sm" variant="outline" onClick={refreshAgenda}>
                     <CalendarDays className="mr-1 h-4 w-4" />
@@ -819,10 +937,20 @@ export default function OfferEditPage({
               Dzień {dayInfo.day} — {dayInfo.label}
             </h2>
             <div className="rounded-xl border border-border/60 shadow-[var(--shadow-card)] overflow-hidden bg-white dark:bg-card">
+            <DndContext
+              sensors={dndSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={(e) => handleDragEnd(e, dayInfo.day)}
+            >
+              <SortableContext
+                items={dayItems.map((i) => i.id)}
+                strategy={verticalListSortingStrategy}
+                disabled={isLocked}
+              >
               <table className="w-full text-sm">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-foreground/70 w-12">NR</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-foreground/70 w-14">NR</th>
                     <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-foreground/70 min-w-[180px]">NAZWA</th>
                     <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-foreground/70 w-20">OD</th>
                     <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-foreground/70 w-20">DO</th>
@@ -840,25 +968,46 @@ export default function OfferEditPage({
                     const isPackage = item.sourceType === "PACKAGE";
                     const personCount = offer.adultsCount + offer.childrenCount;
                     const mul = isPackage ? personCount : 1;
-                    const nettoD = new Decimal(item.unitPrice).mul(item.quantity).mul(mul);
+                    const price = item.unitPrice === "" || item.unitPrice === "-" ? "0" : item.unitPrice;
+                    const nettoD = new Decimal(price).mul(item.quantity).mul(mul);
                     const bruttoD = nettoD.mul(new Decimal(1).add(new Decimal(item.vatRate).div(100)));
                     const netto = nettoD.toNumber();
                     const brutto = bruttoD.toNumber();
                     const isExpanded = expandedRows.has(item.id);
-                    const composition = isPackage ? tryParseComposition(item.description) : null;
+                    const composition = isPackage
+                      ? tryParseComposition(item.description) ?? (item.sourceId ? menuCompositionMap.get(item.sourceId) ?? null : null)
+                      : null;
 
                     return (
-                      <Fragment key={item.id}>
-                        <tr className={`border-t border-border/40 hover:bg-accent/30 transition-colors ${isPackage ? "bg-blue-50/40 dark:bg-blue-950/10" : ""}`}>
+                      <SortableItemRow key={item.id} id={item.id} disabled={isLocked}>
+                        {({ setNodeRef, listeners, attributes, style, isDragging }) => (
+                        <Fragment>
+                        <tr ref={setNodeRef} style={style} className={`border-t border-border/40 hover:bg-accent/30 transition-colors ${isPackage ? "bg-blue-50/40 dark:bg-blue-950/10" : ""} ${isDragging ? "opacity-50 bg-primary/5" : ""}`}>
                           <td className="px-2 py-1.5 text-muted-foreground">
-                            {isPackage ? (
-                              <button onClick={() => toggleRowExpand(item.id)} className="flex items-center gap-0.5">
-                                <span className="text-xs">{idx + 1}</span>
-                                {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-blue-500" /> : <ChevronRight className="h-3.5 w-3.5 text-blue-500" />}
+                            <div className="flex items-center gap-1">
+                              <button
+                                {...attributes}
+                                {...listeners}
+                                type="button"
+                                className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground touch-none p-0.5 -ml-1"
+                                aria-label="Przeciągnij"
+                                tabIndex={isLocked ? -1 : 0}
+                              >
+                                <GripVertical className="h-3.5 w-3.5" />
                               </button>
-                            ) : (
-                              idx + 1
-                            )}
+                              {isPackage ? (
+                                <button
+                                  onClick={() => toggleRowExpand(item.id)}
+                                  className="flex items-center gap-0.5 pointer-events-auto"
+                                  style={{ pointerEvents: "auto" }}
+                                >
+                                  <span className="text-xs">{idx + 1}</span>
+                                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-blue-500" /> : <ChevronRight className="h-3.5 w-3.5 text-blue-500" />}
+                                </button>
+                              ) : (
+                                <span>{idx + 1}</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-2 py-1.5">
                             {isPackage ? (
@@ -928,12 +1077,10 @@ export default function OfferEditPage({
                             {isPackage ? personCount : "—"}
                           </td>
                           <td className="px-2 py-1.5">
-                            <Input
-                              type="number"
-                              step="0.01"
+                            <PriceInput
                               className="h-8 text-sm border-0 bg-transparent shadow-none focus-visible:ring-1 px-1 w-28"
                               value={item.unitPrice}
-                              onChange={(e) => updateItem(item.id, "unitPrice", e.target.value)}
+                              onChange={(next) => updateItem(item.id, "unitPrice", next)}
                             />
                           </td>
                           <td className="px-2 py-1.5">
@@ -994,11 +1141,15 @@ export default function OfferEditPage({
                             </td>
                           </tr>
                         )}
-                      </Fragment>
+                        </Fragment>
+                        )}
+                      </SortableItemRow>
                     );
                   })}
                 </tbody>
               </table>
+              </SortableContext>
+            </DndContext>
               {!isLocked && (
                 <div className="p-2 border-t border-border/40">
                   <Button variant="ghost" size="sm" className="text-primary" onClick={() => addItem(dayInfo.day, dayInfo.date)}>
@@ -1298,4 +1449,29 @@ export default function OfferEditPage({
       </Dialog>
     </div>
   );
+}
+
+interface SortableRowRenderArgs {
+  setNodeRef: (el: HTMLElement | null) => void;
+  listeners: Record<string, unknown> | undefined;
+  attributes: Record<string, unknown>;
+  style: React.CSSProperties;
+  isDragging: boolean;
+}
+
+function SortableItemRow({
+  id,
+  disabled,
+  children,
+}: {
+  id: string;
+  disabled?: boolean;
+  children: (args: SortableRowRenderArgs) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return <>{children({ setNodeRef, listeners, attributes: attributes as unknown as Record<string, unknown>, style, isDragging })}</>;
 }

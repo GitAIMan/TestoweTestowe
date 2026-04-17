@@ -173,7 +173,6 @@ export default function MenuPage() {
               <Input
                 value={nameField}
                 onChange={(e) => setNameField(e.target.value)}
-                placeholder="np. Oferta Weselna"
                 onKeyDown={(e) => e.key === "Enter" && handleSave()}
                 autoFocus
               />

@@ -245,8 +245,28 @@ export async function POST(req: NextRequest) {
     for (const pkg of data.packages) {
       const pkgInfo = await tx.package.findUnique({
         where: { id: pkg.packageId },
-        include: { offerType: { select: { name: true } } },
+        include: {
+          offerType: { select: { name: true } },
+          sections: {
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            include: {
+              items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+            },
+          },
+        },
       });
+      const composition = pkgInfo
+        ? {
+            packageName: pkgInfo.name,
+            offerTypeName: pkgInfo.offerType?.name || "",
+            sections: (pkgInfo.sections || []).map((s) => ({
+              name: s.name,
+              mode: s.selectionMode,
+              count: s.selectionCount,
+              items: (s.items || []).map((it) => it.name),
+            })),
+          }
+        : null;
       await tx.offerItem.create({
         data: {
           offerId: newOffer.id,
@@ -254,6 +274,7 @@ export async function POST(req: NextRequest) {
           date: eventFrom,
           sortOrder: sortCounter++,
           name: `${pkgInfo?.name || "Pakiet"} (${pkgInfo?.offerType?.name || ""})`,
+          description: composition ? JSON.stringify(composition) : null,
           quantity: 1,
           unitPrice: pkg.priceSnapshot || "0",
           vatRate: 8,
