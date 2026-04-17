@@ -5,3 +5,10 @@ node_modules
 /src/generated/prisma
 next-env.d.ts
 desktop.ini
+
+# Lokalne screeny (nie commitować)
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+!/public/**
