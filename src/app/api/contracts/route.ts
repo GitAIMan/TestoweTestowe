@@ -34,6 +34,7 @@ export async function GET() {
           status: true,
         },
       },
+      createdBy: { select: { firstName: true, lastName: true } },
     },
   });
 
@@ -89,6 +90,7 @@ export async function POST(req: NextRequest) {
   const contract = await prisma.contract.create({
     data: {
       offerId: data.offerId,
+      createdById: session.user.id,
       clientFullName: data.clientFullName,
       clientAddress: data.clientAddress || null,
       clientNip: data.clientNip || null,

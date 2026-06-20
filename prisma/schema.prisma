@@ -37,6 +37,7 @@ enum NotificationType {
   OFERTA_WYGASLA
   OFERTA_ZAAKCEPTOWANA
   OFERTA_ODRZUCONA
+  WIADOMOSC_OD_KLIENTA
 }
 
 enum TokenType {
@@ -79,9 +80,13 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  offers            Offer[]
-  agendas           Agenda[]
-  notificationsRead NotificationRead[]
+  offers                 Offer[]
+  agendas                Agenda[]
+  contracts              Contract[]
+  contractAmendments     ContractAmendment[]
+  clientMessages         ClientMessage[]
+  clientSelectionChanges ClientSelectionChange[]
+  notificationsRead      NotificationRead[]
 }
 
 // ==================== POKOJE ====================
@@ -124,7 +129,7 @@ model HallReservation {
   hallId    String
   hall      Hall     @relation(fields: [hallId], references: [id])
   offerId   String?
-  offer     Offer?   @relation(fields: [offerId], references: [id])
+  offer     Offer?   @relation(fields: [offerId], references: [id], onDelete: Cascade)
   date      DateTime @db.Date
   status    String   @default("ZAREZERWOWANA")
   createdAt DateTime @default(now())
@@ -226,6 +231,8 @@ model Offer {
   sentAt        DateTime?
   expiresAt     DateTime?
   respondedAt   DateTime?
+  offerSentConfirmedAt DateTime?
+  lastItemsChangedAt   DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -313,6 +320,8 @@ model Contract {
   id                String    @id @default(cuid())
   offerId           String
   offer             Offer     @relation(fields: [offerId], references: [id])
+  createdById       String?
+  createdBy         User?     @relation(fields: [createdById], references: [id])
   clientFullName    String
   clientAddress     String?
   clientNip         String?
@@ -322,10 +331,59 @@ model Contract {
   paymentTerms      String?   @db.Text
   specialConditions String?   @db.Text
   signedAt          DateTime?
+  contractSentConfirmedAt DateTime?
+  needsAmendment    Boolean   @default(false)
+  totalAtSigning    Decimal?  @db.Decimal(10, 2)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  amendments        ContractAmendment[]
+  itemSnapshots     ContractItemSnapshot[]
+
   @@index([offerId])
+}
+
+model ContractAmendment {
+  id           String    @id @default(cuid())
+  contractId   String
+  contract     Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  number       Int
+  totalBefore  Decimal   @db.Decimal(10, 2)
+  totalAfter   Decimal   @db.Decimal(10, 2)
+  resolvedAt   DateTime?
+  createdById  String?
+  createdBy    User?     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime  @default(now())
+
+  itemSnapshots ContractItemSnapshot[]
+
+  @@unique([contractId, number])
+  @@index([contractId])
+}
+
+model ContractItemSnapshot {
+  id           String    @id @default(cuid())
+  contractId   String
+  contract     Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  amendmentId  String?
+  amendment    ContractAmendment? @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
+  offerItemId  String?
+  day          Int       @default(1)
+  date         DateTime? @db.Date
+  sortOrder    Int       @default(0)
+  name         String
+  description  String?
+  timeFrom     String?
+  timeTo       String?
+  hallName     String?
+  quantity     Int       @default(1)
+  unitPrice    Decimal   @db.Decimal(10, 2)
+  vatRate      Int       @default(23)
+  sourceType   String?
+  sourceId     String?
+
+  @@index([contractId])
+  @@index([amendmentId])
 }
 
 // ==================== AGENDA ====================
@@ -339,13 +397,60 @@ model Agenda {
   type        AgendaType
   isLocked    Boolean    @default(false)
   notes       String?    @db.Text
+  clientNotifiedAt DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  blocks AgendaBlock[]
-  tokens AgendaToken[]
+  blocks                 AgendaBlock[]
+  tokens                 AgendaToken[]
+  clientMessages         ClientMessage[]
+  clientSelectionChanges ClientSelectionChange[]
 
   @@index([offerId])
+}
+
+enum ClientMessageStatus {
+  ACCEPTED
+  REJECTED
+  CALL_BACK
+}
+
+model ClientMessage {
+  id              String               @id @default(cuid())
+  agendaId        String
+  agenda          Agenda               @relation(fields: [agendaId], references: [id], onDelete: Cascade)
+  content         String               @db.Text
+  createdAt       DateTime             @default(now())
+
+  responseStatus  ClientMessageStatus?
+  responseReason  String?              @db.Text
+  responsePhone   String?
+  respondedById   String?
+  respondedBy     User?                @relation(fields: [respondedById], references: [id])
+  respondedAt     DateTime?
+
+  @@index([agendaId, createdAt])
+}
+
+model ClientSelectionChange {
+  id                   String               @id @default(cuid())
+  agendaId             String
+  agenda               Agenda               @relation(fields: [agendaId], references: [id], onDelete: Cascade)
+  offerItemId          String
+  sectionId            String
+  proposedMenuItemIds  String[]
+  previousMenuItemIds  String[]
+  createdAt            DateTime             @default(now())
+
+  responseStatus  ClientMessageStatus?
+  responseReason  String?              @db.Text
+  responsePhone   String?
+  respondedById   String?
+  respondedBy     User?                @relation(fields: [respondedById], references: [id])
+  respondedAt     DateTime?
+
+  @@index([agendaId, createdAt])
+  @@index([agendaId, responseStatus])
 }
 
 model AgendaBlock {
@@ -397,6 +502,7 @@ model AgendaBlockEquipment {
 model AgendaSectionSelection {
   id          String    @id @default(cuid())
   agendaId    String
+  offerItemId String?
   sectionId   String
   section     Section   @relation(fields: [sectionId], references: [id])
   completedAt DateTime?
@@ -405,7 +511,7 @@ model AgendaSectionSelection {
 
   items AgendaItemSelection[]
 
-  @@unique([agendaId, sectionId])
+  @@unique([agendaId, offerItemId, sectionId])
   @@index([agendaId])
 }
 

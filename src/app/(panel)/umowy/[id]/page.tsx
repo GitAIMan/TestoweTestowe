@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -25,6 +26,7 @@ interface ContractDetail {
   specialConditions: string | null;
   signedAt: string | null;
   createdAt: string;
+  createdBy: { firstName: string; lastName: string } | null;
   offer: {
     id: string;
     clientName: string;
@@ -66,13 +68,19 @@ export default function ContractDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const confirmDelete = useConfirm();
   const { data: contract, mutate } = useSWR<ContractDetail>(
     `/api/contracts/${id}`,
     fetcher
   );
 
   async function deleteContract() {
-    if (!confirm("Czy na pewno chcesz usunąć tę umowę? Ta operacja jest nieodwracalna.")) return;
+    const ok = await confirmDelete({
+      title: "Usunąć umowę?",
+      description: "Tej operacji nie da się cofnąć.",
+      confirmLabel: "Tak, usuń",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/contracts/${id}`, { method: "DELETE" });
       const data = await res.json();
@@ -122,16 +130,27 @@ export default function ContractDetailPage({
             {offer.eventName && (
               <p className="text-muted-foreground">{offer.eventName}</p>
             )}
+            {contract.createdBy && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Utworzył: <span className="font-medium text-foreground">{contract.createdBy.firstName} {contract.createdBy.lastName}</span>
+              </p>
+            )}
           </div>
           <Badge variant={contract.signedAt ? "default" : "secondary"}>
             {contract.signedAt ? "Podpisana" : "Niepodpisana"}
           </Badge>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <a href={`/api/offers/${contract.offer.id}/pdf`} download={`oferta-${contract.offer.id}.pdf`}>
+            <Button variant="outline" size="sm">
+              <FileDown className="mr-1 h-4 w-4" />
+              Pobierz ofertę
+            </Button>
+          </a>
           <a href={`/api/contracts/${id}/pdf`} target="_blank" rel="noopener">
             <Button variant="outline" size="sm">
               <FileDown className="mr-1 h-4 w-4" />
-              PDF
+              Pobierz umowę
             </Button>
           </a>
           {!contract.signedAt && (

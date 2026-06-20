@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OfferFormData, OfferPackageItem } from "./offer-wizard-types";
+import { calculatePackagePrice } from "@/lib/package-pricing";
 
 interface MenuItem {
   id: string;
@@ -15,6 +16,7 @@ interface MenuItem {
 interface Section {
   id: string;
   name: string;
+  price: string | null;
   selectionMode: string;
   selectionCount: number | null;
   items: MenuItem[];
@@ -24,6 +26,7 @@ interface Package {
   id: string;
   name: string;
   price: string | null;
+  vatRate: number | null;
   sections: Section[];
 }
 
@@ -64,17 +67,45 @@ export function StepPackages({ data, onChange }: Props) {
     return data.packages.some((p) => p.packageId === packageId);
   }
 
+  function computePrice(pkg: Package): { unitPrice: string; label: string } {
+    const result = calculatePackagePrice({
+      id: pkg.id,
+      name: pkg.name,
+      price: pkg.price,
+      vatRate: pkg.vatRate,
+      sections: pkg.sections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        price: s.price,
+        selectionMode: s.selectionMode,
+        selectionCount: s.selectionCount,
+        items: s.items.map((it) => ({ id: it.id, name: it.name, price: it.price })),
+      })),
+    });
+    const unitPrice = result.unitPrice.toFixed(2);
+    const label =
+      result.source === "PACKAGE"
+        ? "cena pakietu"
+        : result.source === "SECTIONS"
+        ? "suma sekcji"
+        : result.source === "ITEMS"
+        ? "z pozycji menu"
+        : "0 zł (brak cen)";
+    return { unitPrice, label };
+  }
+
   function togglePackage(pkg: Package, offerTypeName: string) {
     if (isSelected(pkg.id)) {
       onChange({
         packages: data.packages.filter((p) => p.packageId !== pkg.id),
       });
     } else {
+      const { unitPrice } = computePrice(pkg);
       const item: OfferPackageItem = {
         packageId: pkg.id,
         packageName: pkg.name,
         offerTypeName,
-        priceSnapshot: pkg.price,
+        priceSnapshot: unitPrice,
       };
       onChange({ packages: [...data.packages, item] });
     }
@@ -156,20 +187,26 @@ export function StepPackages({ data, onChange }: Props) {
 
                         {/* Nazwa + cena */}
                         <div className="flex-1 min-w-0">
-                          <span className="font-medium">{pkg.name}</span>
-                          {pkg.price && (
-                            <span className="text-muted-foreground ml-2 text-sm">
-                              ({Number(pkg.price).toFixed(2)} zł)
-                            </span>
-                          )}
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {pkg.sections.length} sekcji ·{" "}
-                            {pkg.sections.reduce(
-                              (sum, s) => sum + s.items.length,
-                              0
-                            )}{" "}
-                            pozycji
-                          </div>
+                          {(() => {
+                            const { unitPrice, label } = computePrice(pkg);
+                            const priceNum = Number(unitPrice);
+                            return (
+                              <>
+                                <span className="font-medium">{pkg.name}</span>
+                                <span className="text-muted-foreground ml-2 text-sm">
+                                  ({priceNum > 0 ? `${priceNum.toFixed(2)} zł/os · ${label}` : "0 zł"})
+                                </span>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {pkg.sections.length} sekcji ·{" "}
+                                  {pkg.sections.reduce(
+                                    (sum, s) => sum + s.items.length,
+                                    0
+                                  )}{" "}
+                                  pozycji
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {/* Rozwiń/zwiń skład */}

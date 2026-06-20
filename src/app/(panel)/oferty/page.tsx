@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface Offer {
   id: string;
@@ -62,9 +63,16 @@ export default function OfertyPage() {
     `/api/offers${queryString ? `?${queryString}` : ""}`,
     fetcher
   );
+  const confirmDelete = useConfirm();
 
-  async function deleteOffer(id: string) {
-    if (!confirm("Czy na pewno chcesz usunąć tę ofertę? Zostaną usunięte też powiązane umowy i agendy.")) return;
+  async function deleteOffer(id: string, clientName: string) {
+    const ok = await confirmDelete({
+      title: `Usunąć ofertę "${clientName}"?`,
+      description:
+        "Usunięcie oferty skasuje też powiązane umowy, agendy i rezerwacje sal. Tej operacji nie da się cofnąć.",
+      confirmLabel: "Tak, usuń",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/offers/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -189,7 +197,7 @@ export default function OfertyPage() {
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => deleteOffer(offer.id)}
+                        onClick={() => deleteOffer(offer.id, offer.clientName)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

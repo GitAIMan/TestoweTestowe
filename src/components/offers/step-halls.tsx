@@ -161,12 +161,16 @@ export function StepHalls({ data, onChange }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => addHall(hall, date)}
-                            title={tooSmall ? `Sala na ${hall.capacity} os., gości ${totalPeople}` : undefined}
+                            className={`h-7 text-xs ${tooSmall ? "cursor-not-allowed opacity-40" : ""}`}
+                            onClick={() => {
+                              if (tooSmall) return;
+                              addHall(hall, date);
+                            }}
+                            disabled={tooSmall}
+                            title={tooSmall ? `Sala na ${hall.capacity} os., gości ${totalPeople} — za mała` : undefined}
                           >
                             <Plus className="h-3 w-3 mr-1" />
-                            Dodaj
+                            {tooSmall ? "Za mała" : "Dodaj"}
                           </Button>
                         )}
                       </td>

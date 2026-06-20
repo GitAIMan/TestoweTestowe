@@ -9,11 +9,13 @@ import {
   FileText,
   ScrollText,
   CalendarDays,
+  CalendarCheck2,
   UtensilsCrossed,
   DoorOpen,
   BedDouble,
   Settings,
   BarChart3,
+  Bell,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,8 @@ const navigation = [
   { name: "Oferty", href: "/oferty", icon: FileText },
   { name: "Umowy", href: "/umowy", icon: ScrollText },
   { name: "Agendy", href: "/agendy", icon: CalendarDays },
+  { name: "Kalendarz", href: "/kalendarz", icon: CalendarCheck2 },
+  { name: "Powiadomienia", href: "/powiadomienia", icon: Bell },
   { name: "Menu", href: "/menu", icon: UtensilsCrossed },
   { name: "Sale", href: "/sale", icon: DoorOpen },
   { name: "Pokoje", href: "/pokoje", icon: BedDouble },

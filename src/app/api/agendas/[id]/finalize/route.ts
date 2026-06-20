@@ -135,6 +135,17 @@ export async function POST(
       data: { isLocked: true },
     });
 
+    // Zamknij wszystkie niezakończone propozycje klienta (z powodem)
+    await tx.clientSelectionChange.updateMany({
+      where: { agendaId: id, responseStatus: null },
+      data: {
+        responseStatus: "REJECTED",
+        responseReason: "Agenda została sfinalizowana — wcześniejsza propozycja zmiany nie została rozpatrzona.",
+        respondedById: session.user.id,
+        respondedAt: new Date(),
+      },
+    });
+
     return newAgenda;
   });
 

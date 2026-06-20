@@ -3,10 +3,17 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Save, StickyNote, ChevronDown, ChevronUp } from "lucide-react";
+import useSWR from "swr";
+import { ChevronLeft, ChevronRight, Save, StickyNote, ChevronDown, ChevronUp, CalendarCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   INITIAL_FORM_DATA,
   STEP_LABELS,
@@ -17,6 +24,17 @@ import { StepEvent } from "@/components/offers/step-event";
 import { StepHalls } from "@/components/offers/step-halls";
 import { StepPackages } from "@/components/offers/step-packages";
 import { StepSummary } from "@/components/offers/step-summary";
+import {
+  MonthCalendar,
+  type CalendarDayData,
+} from "@/components/calendar/month-calendar";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+function todayMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export default function NowaOfertaPage() {
   const router = useRouter();
@@ -24,6 +42,14 @@ export default function NowaOfertaPage() {
   const [data, setData] = useState<OfferFormData>(INITIAL_FORM_DATA);
   const [saving, setSaving] = useState(false);
   const [notesOpen, setNotesOpen] = useState(true);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calMonth, setCalMonth] = useState(todayMonth());
+  const [selectedDay, setSelectedDay] = useState<CalendarDayData | null>(null);
+
+  const { data: calData } = useSWR<{ month: string; days: CalendarDayData[] }>(
+    calendarOpen ? `/api/calendar?month=${calMonth}` : null,
+    fetcher
+  );
 
   // Popup przy wyjściu bez zapisu
   useEffect(() => {
@@ -127,7 +153,17 @@ export default function NowaOfertaPage() {
     <div className="flex gap-6 max-w-6xl mx-auto items-start">
       {/* Główna kolumna */}
       <div className="space-y-6 flex-1 min-w-0">
-        <h1 className="text-2xl font-semibold">Nowa oferta</h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-2xl font-semibold">Nowa oferta</h1>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCalendarOpen(true)}
+          >
+            <CalendarCheck2 className="mr-1 h-4 w-4" />
+            Podgląd kalendarza
+          </Button>
+        </div>
 
         {/* Stepper */}
         <div className="flex items-center gap-1">
@@ -224,6 +260,67 @@ export default function NowaOfertaPage() {
           />
         </div>
       </div>
+
+      {/* Modal: podgląd kalendarza rezerwacji */}
+      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Kalendarz rezerwacji</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <MonthCalendar
+              month={calMonth}
+              days={calData?.days || []}
+              onMonthChange={setCalMonth}
+              onDayClick={setSelectedDay}
+            />
+            {selectedDay && (
+              <div className="rounded-lg border bg-card p-4">
+                <div className="font-semibold mb-3">
+                  {new Date(selectedDay.date + "T00:00:00").toLocaleDateString("pl-PL", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </div>
+                {selectedDay.reservations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    Brak rezerwacji — wszystkie sale wolne.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedDay.reservations.map((r, i) => (
+                      <div key={i} className="text-sm rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                        <span className="font-medium">{r.hallName}</span>
+                        <span className="text-muted-foreground"> · {r.clientName}</span>
+                        <span className="text-muted-foreground"> · {r.adultsCount + r.childrenCount} os.</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {selectedDay.freeHalls.length > 0 && (
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Wolne sale
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedDay.freeHalls.map((h) => (
+                        <span
+                          key={h.id}
+                          className="text-xs rounded bg-green-50 border border-green-200 px-2 py-0.5"
+                        >
+                          {h.name} · {h.capacity} os.
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

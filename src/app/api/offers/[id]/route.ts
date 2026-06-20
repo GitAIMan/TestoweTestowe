@@ -111,6 +111,9 @@ export async function DELETE(
     // Usuń umowy
     await tx.contract.deleteMany({ where: { offerId: id } });
 
+    // Usuń rezerwacje sal (bezpiecznik — cascade w schemacie też to zrobi)
+    await tx.hallReservation.deleteMany({ where: { offerId: id } });
+
     // Usuń powiązania oferty
     await tx.offerPackage.deleteMany({ where: { offerId: id } });
     await tx.offerRoom.deleteMany({ where: { offerId: id } });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { computeClientLockDate, DEFAULT_LOCK_DAYS_BEFORE } from "@/lib/agenda-lock";
 
 export async function GET(
   req: NextRequest,
@@ -116,11 +117,45 @@ export async function GET(
     },
   });
 
+  // Historia propozycji zmian klienta — z nazwami pozycji
+  const selectionChanges = await prisma.clientSelectionChange.findMany({
+    where: { agendaId: agenda.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      respondedBy: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  const allMenuItemIds = new Set<string>();
+  for (const c of selectionChanges) {
+    for (const id of c.proposedMenuItemIds) allMenuItemIds.add(id);
+    for (const id of c.previousMenuItemIds) allMenuItemIds.add(id);
+  }
+  const menuItems = allMenuItemIds.size
+    ? await prisma.menuItem.findMany({
+        where: { id: { in: Array.from(allMenuItemIds) } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const menuMap = new Map(menuItems.map((m) => [m.id, m.name]));
+
+  const selectionChangesOut = selectionChanges.map((c) => ({
+    id: c.id,
+    offerItemId: c.offerItemId,
+    sectionId: c.sectionId,
+    proposedNames: c.proposedMenuItemIds.map((id) => menuMap.get(id) || "?"),
+    previousNames: c.previousMenuItemIds.map((id) => menuMap.get(id) || "?"),
+    createdAt: c.createdAt.toISOString(),
+    responseStatus: c.responseStatus,
+    responseReason: c.responseReason,
+    responsePhone: c.responsePhone,
+    respondedAt: c.respondedAt?.toISOString() || null,
+    respondedBy: c.respondedBy,
+  }));
+
   const settings = await prisma.settings.findFirst();
-  const lockDays = settings?.agendaLockDaysBefore ?? 14;
-  const eventDate = new Date(agenda.offer.eventDateFrom);
-  const lockDate = new Date(eventDate);
-  lockDate.setDate(lockDate.getDate() - lockDays);
+  const lockDays = settings?.agendaLockDaysBefore ?? DEFAULT_LOCK_DAYS_BEFORE;
+  const lockDate = computeClientLockDate(agenda.offer.eventDateFrom, lockDays);
   const isLocked = agenda.isLocked || new Date() >= lockDate;
 
   const hotel = settings
@@ -146,6 +181,7 @@ export async function GET(
     agenda: agendaOut,
     packageCompositions,
     selections,
+    selectionChanges: selectionChangesOut,
     isLocked,
     tokenType: agendaToken.type,
     hotel,

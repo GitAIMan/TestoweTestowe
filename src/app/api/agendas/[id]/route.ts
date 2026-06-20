@@ -48,7 +48,14 @@ export async function GET(
       },
       tokens: {
         where: { isRevoked: false },
-        select: { id: true, token: true, type: true, createdAt: true },
+        select: {
+          id: true,
+          token: true,
+          type: true,
+          createdAt: true,
+          expiresAt: true,
+          isRevoked: true,
+        },
       },
     },
   });

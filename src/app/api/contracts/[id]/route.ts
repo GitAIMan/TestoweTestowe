@@ -29,6 +29,7 @@ export async function GET(
   const contract = await prisma.contract.findUnique({
     where: { id },
     include: {
+      createdBy: { select: { firstName: true, lastName: true } },
       offer: {
         include: {
           createdBy: { select: { firstName: true, lastName: true } },
@@ -92,8 +93,71 @@ export async function PUT(
   if (parsed.data.advanceDueDate) {
     updateData.advanceDueDate = new Date(parsed.data.advanceDueDate);
   }
+
+  // Wykryj przejście niepodpisana -> podpisana (snapshot pozycji + kwoty)
+  const isSigningNow =
+    parsed.data.signedAt !== undefined &&
+    parsed.data.signedAt !== null &&
+    parsed.data.signedAt !== "" &&
+    !existing.signedAt;
+
   if (parsed.data.signedAt) {
     updateData.signedAt = new Date(parsed.data.signedAt);
+  } else if (parsed.data.signedAt === null) {
+    updateData.signedAt = null;
+  }
+
+  if (isSigningNow) {
+    // Dociągnij aktualne offerItems + kwotę
+    const offer = await prisma.offer.findUnique({
+      where: { id: existing.offerId },
+      include: {
+        offerItems: {
+          orderBy: [{ day: "asc" }, { sortOrder: "asc" }],
+          include: { hall: { select: { name: true } } },
+        },
+      },
+    });
+
+    if (!offer) {
+      return NextResponse.json({ error: "Oferta nie znaleziona" }, { status: 404 });
+    }
+
+    updateData.totalAtSigning = offer.totalPrice;
+
+    await prisma.$transaction(async (tx) => {
+      // Skasuj ewentualne istniejące snapshoty bazowe (amendmentId=null) — bezpieczeństwo
+      await tx.contractItemSnapshot.deleteMany({
+        where: { contractId: id, amendmentId: null },
+      });
+      // Utwórz świeże snapshoty
+      if (offer.offerItems.length > 0) {
+        await tx.contractItemSnapshot.createMany({
+          data: offer.offerItems.map((it) => ({
+            contractId: id,
+            amendmentId: null,
+            offerItemId: it.id,
+            day: it.day,
+            date: it.date,
+            sortOrder: it.sortOrder,
+            name: it.name,
+            description: it.description,
+            timeFrom: it.timeFrom,
+            timeTo: it.timeTo,
+            hallName: it.hall?.name || null,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+            vatRate: it.vatRate,
+            sourceType: it.sourceType,
+            sourceId: it.sourceId,
+          })),
+        });
+      }
+      await tx.contract.update({ where: { id }, data: updateData });
+    });
+
+    const contract = await prisma.contract.findUnique({ where: { id } });
+    return NextResponse.json(contract);
   }
 
   const contract = await prisma.contract.update({

@@ -6,7 +6,7 @@ import { ContractPdf } from "@/components/contracts/contract-pdf";
 import { createElement } from "react";
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -22,24 +22,15 @@ export async function GET(
       include: {
         offer: {
           include: {
-            offerRooms: {
-              include: { room: { select: { name: true, type: true } } },
-            },
-            offerHalls: {
-              include: { hall: { select: { name: true, capacity: true } } },
-              orderBy: { date: "asc" },
-            },
-            offerPackages: {
-              include: {
-                package: {
-                  include: {
-                    offerType: { select: { name: true } },
-                  },
-                },
-              },
-              orderBy: { sortOrder: "asc" },
+            offerItems: {
+              orderBy: [{ day: "asc" }, { sortOrder: "asc" }],
+              include: { hall: { select: { name: true } } },
             },
           },
+        },
+        itemSnapshots: {
+          where: { amendmentId: null },
+          orderBy: [{ day: "asc" }, { sortOrder: "asc" }],
         },
       },
     }),
@@ -54,6 +45,42 @@ export async function GET(
     return NextResponse.json({ error: "Brak ustawień hotelu" }, { status: 500 });
   }
 
+  const isSigned = Boolean(contract.signedAt);
+
+  // Źródło pozycji: snapshot po podpisie, live offerItems przed podpisem
+  const itemsSource = isSigned
+    ? contract.itemSnapshots.map((s) => ({
+        day: s.day,
+        date: s.date?.toISOString() || null,
+        sortOrder: s.sortOrder,
+        name: s.name,
+        timeFrom: s.timeFrom,
+        timeTo: s.timeTo,
+        hallName: s.hallName,
+        quantity: s.quantity,
+        unitPrice: s.unitPrice.toString(),
+        vatRate: s.vatRate,
+        sourceType: s.sourceType,
+      }))
+    : contract.offer.offerItems.map((it) => ({
+        day: it.day,
+        date: it.date?.toISOString() || null,
+        sortOrder: it.sortOrder,
+        name: it.name,
+        timeFrom: it.timeFrom,
+        timeTo: it.timeTo,
+        hallName: it.hall?.name || null,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice.toString(),
+        vatRate: it.vatRate,
+        sourceType: it.sourceType,
+      }));
+
+  // Kwota: totalAtSigning po podpisie, offer.totalPrice przed
+  const totalPrice = isSigned
+    ? (contract.totalAtSigning?.toString() || contract.offer.totalPrice.toString())
+    : contract.offer.totalPrice.toString();
+
   const serializedContract = {
     ...contract,
     advanceAmount: contract.advanceAmount?.toString() || null,
@@ -63,23 +90,12 @@ export async function GET(
   };
 
   const serializedOffer = {
-    ...contract.offer,
+    eventName: contract.offer.eventName,
     eventDateFrom: contract.offer.eventDateFrom.toISOString(),
     eventDateTo: contract.offer.eventDateTo.toISOString(),
-    totalPrice: contract.offer.totalPrice.toString(),
-    offerRooms: contract.offer.offerRooms.map((r) => ({
-      ...r,
-      pricePerNight: r.pricePerNight.toString(),
-    })),
-    offerHalls: contract.offer.offerHalls.map((h) => ({
-      ...h,
-      date: h.date.toISOString(),
-      pricePerDay: h.pricePerDay.toString(),
-    })),
-    offerPackages: contract.offer.offerPackages.map((p) => ({
-      ...p,
-      priceSnapshot: p.priceSnapshot?.toString() || null,
-    })),
+    adultsCount: contract.offer.adultsCount,
+    childrenCount: contract.offer.childrenCount,
+    totalPrice,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,6 +103,7 @@ export async function GET(
     hotel: settings,
     contract: serializedContract,
     offer: serializedOffer,
+    items: itemsSource,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

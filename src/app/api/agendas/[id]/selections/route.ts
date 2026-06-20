@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 interface SelectionInput {
   sectionId: string;
+  offerItemId: string | null;
   menuItemIds: string[];
 }
 
@@ -43,12 +44,11 @@ export async function PUT(
 
   await prisma.$transaction(async (tx) => {
     for (const sel of selections) {
-      const existing = await tx.agendaSectionSelection.findUnique({
+      const existing = await tx.agendaSectionSelection.findFirst({
         where: {
-          agendaId_sectionId: {
-            agendaId: agenda.id,
-            sectionId: sel.sectionId,
-          },
+          agendaId: agenda.id,
+          offerItemId: sel.offerItemId,
+          sectionId: sel.sectionId,
         },
       });
 
@@ -67,6 +67,7 @@ export async function PUT(
         const created = await tx.agendaSectionSelection.create({
           data: {
             agendaId: agenda.id,
+            offerItemId: sel.offerItemId,
             sectionId: sel.sectionId,
             completedAt: new Date(),
           },

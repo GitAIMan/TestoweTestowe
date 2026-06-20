@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Table,
   TableBody,
@@ -35,9 +36,15 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function AgendyPage() {
   const { data: agendas, mutate } = useSWR<Agenda[]>("/api/agendas", fetcher);
+  const confirmDelete = useConfirm();
 
-  async function deleteAgenda(id: string) {
-    if (!confirm("Czy na pewno chcesz usunąć tę agendę? Linki klienta i kuchni przestaną działać.")) return;
+  async function deleteAgenda(id: string, clientName: string) {
+    const ok = await confirmDelete({
+      title: `Usunąć agendę "${clientName}"?`,
+      description: "Linki klienta i kuchni przestaną działać. Tej operacji nie da się cofnąć.",
+      confirmLabel: "Tak, usuń",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/agendas/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -116,7 +123,7 @@ export default function AgendyPage() {
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => deleteAgenda(a.id)}
+                      onClick={() => deleteAgenda(a.id, a.offer.clientName)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

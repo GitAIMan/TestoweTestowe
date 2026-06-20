@@ -12,22 +12,34 @@ interface Props {
 }
 
 export function StepSummary({ data, onChange }: Props) {
-  // Oblicz sumy z decimal.js
-  const roomsTotal = data.rooms.reduce(
+  const personCount = (data.adultsCount || 0) + (data.childrenCount || 0);
+  const VAT_ROOMS = new Decimal(1.08); // 8%
+  const VAT_HALLS = new Decimal(1.23); // 23%
+  const VAT_PACKAGES = new Decimal(1.08); // 8% (żywność)
+
+  // Sale — ryczałt × VAT 23%
+  const hallsNetto = data.halls.reduce(
+    (sum, h) => sum.add(new Decimal(h.pricePerDay)),
+    new Decimal(0)
+  );
+  const hallsTotal = hallsNetto.mul(VAT_HALLS);
+
+  // Pokoje — ryczałt × VAT 8%
+  const roomsNetto = data.rooms.reduce(
     (sum, r) =>
       sum.add(new Decimal(r.pricePerNight).mul(r.quantity).mul(r.nights)),
     new Decimal(0)
   );
+  const roomsTotal = roomsNetto.mul(VAT_ROOMS);
 
-  const hallsTotal = data.halls.reduce(
-    (sum, h) => sum.add(new Decimal(h.pricePerDay)),
-    new Decimal(0)
-  );
-
-  const packagesTotal = data.packages.reduce(
+  // Pakiety — cena/os × osoby × VAT 8%
+  const packagesUnitNetto = data.packages.reduce(
     (sum, p) => (p.priceSnapshot ? sum.add(new Decimal(p.priceSnapshot)) : sum),
     new Decimal(0)
   );
+  const packagesTotal = packagesUnitNetto
+    .mul(personCount)
+    .mul(VAT_PACKAGES);
 
   const grandTotal = roomsTotal.add(hallsTotal).add(packagesTotal);
 
@@ -90,7 +102,8 @@ export function StepSummary({ data, onChange }: Props) {
               </p>
             ))}
             <p className="text-sm font-medium mt-1">
-              Suma sal: {hallsTotal.toFixed(2)} zł
+              Suma sal: <span className="text-muted-foreground font-normal">{hallsNetto.toFixed(2)} zł netto · </span>
+              {hallsTotal.toFixed(2)} zł brutto
             </p>
           </div>
           <Separator />
@@ -112,7 +125,8 @@ export function StepSummary({ data, onChange }: Props) {
               </p>
             ))}
             <p className="text-sm font-medium mt-1">
-              Suma pokoi: {roomsTotal.toFixed(2)} zł
+              Suma pokoi: <span className="text-muted-foreground font-normal">{roomsNetto.toFixed(2)} zł netto · </span>
+              {roomsTotal.toFixed(2)} zł brutto
             </p>
           </div>
           <Separator />
@@ -129,11 +143,15 @@ export function StepSummary({ data, onChange }: Props) {
             {data.packages.map((p) => (
               <p key={p.packageId} className="text-sm">
                 {p.packageName} ({p.offerTypeName})
-                {p.priceSnapshot && ` — ${Number(p.priceSnapshot).toFixed(2)} zł`}
+                {p.priceSnapshot && ` — ${Number(p.priceSnapshot).toFixed(2)} zł/os.`}
               </p>
             ))}
             <p className="text-sm font-medium mt-1">
-              Suma pakietów: {packagesTotal.toFixed(2)} zł
+              {packagesUnitNetto.toFixed(2)} zł/os. × {personCount} os. ={" "}
+              <span className="text-muted-foreground font-normal">
+                {packagesUnitNetto.mul(personCount).toFixed(2)} zł netto ·{" "}
+              </span>
+              {packagesTotal.toFixed(2)} zł brutto
             </p>
           </div>
           <Separator />
@@ -143,7 +161,12 @@ export function StepSummary({ data, onChange }: Props) {
       {/* TOTAL */}
       <div className="rounded-lg bg-muted p-4">
         <div className="flex justify-between items-center">
-          <span className="text-lg font-semibold">RAZEM</span>
+          <div>
+            <span className="text-lg font-semibold">RAZEM BRUTTO</span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Zawiera VAT. Pakiety liczone × liczba osób ({personCount}).
+            </p>
+          </div>
           <span className="text-2xl font-bold">{grandTotal.toFixed(2)} zł</span>
         </div>
       </div>

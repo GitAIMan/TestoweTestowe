@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 
 function NumberInputBlocker() {
   useEffect(() => {
@@ -43,9 +44,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <TooltipProvider>
-        <NumberInputBlocker />
-        {children}
-        <Toaster position="top-right" richColors />
+        <ConfirmProvider>
+          <NumberInputBlocker />
+          {children}
+          <Toaster position="top-right" richColors />
+        </ConfirmProvider>
       </TooltipProvider>
     </SessionProvider>
   );

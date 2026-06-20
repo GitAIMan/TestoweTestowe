@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface OfferType {
   id: string;
@@ -34,6 +35,7 @@ export default function MenuPage() {
   const [dialog, setDialog] = useState<{ editing?: OfferType } | null>(null);
   const [nameField, setNameField] = useState("");
   const [saving, setSaving] = useState(false);
+  const confirmDelete = useConfirm();
 
   function openDialog(editing?: OfferType) {
     setNameField(editing?.name || "");
@@ -70,7 +72,12 @@ export default function MenuPage() {
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Czy na pewno chcesz usunąć "${name}"? Zostaną usunięte wszystkie pakiety, sekcje i pozycje.`)) return;
+    const ok = await confirmDelete({
+      title: `Usunąć "${name}"?`,
+      description: "Zostaną usunięte wszystkie pakiety, sekcje i pozycje. Tej operacji nie da się cofnąć.",
+      confirmLabel: "Tak, usuń",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/menu/offer-types/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Błąd");

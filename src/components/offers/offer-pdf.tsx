@@ -754,7 +754,12 @@ interface OfferItemPdf {
 interface PackageComposition {
   packageName: string;
   offerTypeName: string;
-  sections: { name: string; mode?: string; count?: number | null; items: string[] }[];
+  sections: {
+    name: string;
+    mode?: string;
+    count?: number | null;
+    items: Array<string | { id: string; name: string }>;
+  }[];
 }
 
 interface OfferPdfProps {
@@ -1007,7 +1012,7 @@ export function OfferPdf({ hotel, offer, items }: OfferPdfProps) {
               <Text style={s.metaValue}>{expiryStr}</Text>
             </View>
             <View style={s.metaCol}>
-              <Text style={s.metaLabel}>Goście</Text>
+              <Text style={s.metaLabel}>Osoby</Text>
               <Text style={s.metaValue}>
                 {offer.adultsCount}
                 {offer.childrenCount > 0 ? ` + ${offer.childrenCount}` : ""} os.
@@ -1090,7 +1095,7 @@ export function OfferPdf({ hotel, offer, items }: OfferPdfProps) {
                 strokeLinejoin="round"
               />
             </Svg>
-            <Text style={s.hlLabel}>Goście</Text>
+            <Text style={s.hlLabel}>Osoby</Text>
             <Text style={s.hlValue}>{personCount}</Text>
             <Text style={s.hlSub}>
               {offer.adultsCount} dorośli
@@ -1226,7 +1231,7 @@ export function OfferPdf({ hotel, offer, items }: OfferPdfProps) {
                                 <View style={s.pkgItemList}>
                                   {sec.items.map((it, ii) => (
                                     <Text key={ii} style={s.pkgItem}>
-                                      — {it}
+                                      — {typeof it === "string" ? it : it.name}
                                     </Text>
                                   ))}
                                 </View>
@@ -1295,6 +1300,35 @@ export function OfferPdf({ hotel, offer, items }: OfferPdfProps) {
             </View>
           </View>
         </View>
+
+        {/* PACKAGE PRICING NOTE (pokazywane gdy są pakiety) */}
+        {items.some((it) => it.sourceType === "PACKAGE") && (
+          <View
+            style={{
+              marginTop: 10,
+              marginHorizontal: 48,
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderLeftWidth: 2,
+              borderLeftColor: accent,
+              borderLeftStyle: "solid",
+              backgroundColor: CREAM,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Fraunces",
+                fontSize: 8.5,
+                fontStyle: "italic",
+                color: BODY,
+                lineHeight: 1.5,
+              }}
+            >
+              Wycena uwzględnia najwyższy wariant z menu. Po wyborze dań przez klienta kwota
+              może zostać skorygowana w dół aneksem do umowy.
+            </Text>
+          </View>
+        )}
 
         {/* VALIDITY STRIP */}
         <View style={s.validStrip}>

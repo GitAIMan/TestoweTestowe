@@ -26,7 +26,26 @@ export async function GET(
 
   const contract = await prisma.contract.findFirst({
     where: { offerId: id },
-    select: { id: true, signedAt: true, clientFullName: true },
+    select: {
+      id: true,
+      signedAt: true,
+      clientFullName: true,
+      needsAmendment: true,
+      contractSentConfirmedAt: true,
+      totalAtSigning: true,
+      createdBy: { select: { firstName: true, lastName: true } },
+      amendments: {
+        orderBy: { number: "asc" },
+        select: {
+          id: true,
+          number: true,
+          createdAt: true,
+          resolvedAt: true,
+          totalBefore: true,
+          totalAfter: true,
+        },
+      },
+    },
   });
 
   const agenda = await prisma.agenda.findFirst({
@@ -36,6 +55,9 @@ export async function GET(
       id: true,
       type: true,
       isLocked: true,
+      clientNotifiedAt: true,
+      createdAt: true,
+      createdBy: { select: { firstName: true, lastName: true } },
       tokens: {
         where: { isRevoked: false },
         select: { token: true, type: true },
@@ -43,5 +65,13 @@ export async function GET(
     },
   });
 
-  return NextResponse.json({ offer, contract, agenda });
+  // Licznik nieodpowiedzianych wiadomości klienta (dla bannera w widoku Excel)
+  let unansweredMessages = 0;
+  if (agenda) {
+    unansweredMessages = await prisma.clientMessage.count({
+      where: { agendaId: agenda.id, responseStatus: null },
+    });
+  }
+
+  return NextResponse.json({ offer, contract, agenda, unansweredMessages });
 }

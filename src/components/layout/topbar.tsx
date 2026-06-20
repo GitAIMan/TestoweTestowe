@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
                     Brak powiadomień
                   </div>
                 ) : (
-                  data.notifications.slice(0, 20).map((n) => (
+                  data.notifications.slice(0, 5).map((n) => (
                     <button
                       key={n.id}
                       onClick={() => {
@@ -111,6 +112,13 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
                     </button>
                   ))
                 )}
+                <Link
+                  href="/powiadomienia"
+                  onClick={() => setDropdownOpen(false)}
+                  className="block text-center text-sm font-medium text-primary hover:bg-accent/40 px-3 py-2.5 border-t"
+                >
+                  Zobacz wszystkie →
+                </Link>
               </div>
             </>
           )}

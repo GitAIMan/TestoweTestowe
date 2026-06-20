@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod/v4";
 import Decimal from "decimal.js";
+import { calculatePackagePrice } from "@/lib/package-pricing";
 
 const offerRoomSchema = z.object({
   roomId: z.string().min(1),
@@ -112,12 +113,62 @@ export async function POST(req: NextRequest) {
     total = total.add(brutto);
   }
 
+  // Dociąganie pełnej struktury pakietów (źródło prawdy — nie ufamy priceSnapshot z frontendu)
+  const packageIds = data.packages.map((p) => p.packageId);
+  const fullPackages = packageIds.length
+    ? await prisma.package.findMany({
+        where: { id: { in: packageIds } },
+        include: {
+          offerType: { select: { name: true } },
+          sections: {
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            include: {
+              items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+            },
+          },
+        },
+      })
+    : [];
+  const pkgById = new Map(fullPackages.map((p) => [p.id, p]));
+
+  // Pre-obliczone ceny pakietów (używane też przy tworzeniu OfferItem niżej)
+  const packagePricing = new Map<
+    string,
+    { unitPrice: Decimal; vatRate: number; breakdown: ReturnType<typeof calculatePackagePrice> }
+  >();
+
   for (const pkg of data.packages) {
-    if (pkg.priceSnapshot) {
-      const netto = new Decimal(pkg.priceSnapshot).mul(personCount);
-      const brutto = netto.mul(new Decimal(1).add(new Decimal(8).div(100)));
-      total = total.add(brutto);
-    }
+    const full = pkgById.get(pkg.packageId);
+    if (!full) continue;
+
+    const result = calculatePackagePrice({
+      id: full.id,
+      name: full.name,
+      price: full.price,
+      vatRate: full.vatRate ?? 8,
+      sections: full.sections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        price: s.price,
+        selectionMode: s.selectionMode,
+        selectionCount: s.selectionCount,
+        items: s.items.map((it) => ({
+          id: it.id,
+          name: it.name,
+          price: it.price,
+        })),
+      })),
+    });
+
+    packagePricing.set(pkg.packageId, {
+      unitPrice: result.unitPrice,
+      vatRate: result.vatRate,
+      breakdown: result,
+    });
+
+    const netto = result.unitPrice.mul(personCount);
+    const brutto = netto.mul(new Decimal(1).add(new Decimal(result.vatRate).div(100)));
+    total = total.add(brutto);
   }
 
   // Transakcja: tworzymy ofertę + klocki + rezerwacje sal
@@ -176,13 +227,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Klocki: pakiety
+    // Klocki: pakiety — priceSnapshot z serwerowej kalkulacji
     if (data.packages.length > 0) {
       await tx.offerPackage.createMany({
         data: data.packages.map((p, i) => ({
           offerId: newOffer.id,
           packageId: p.packageId,
-          priceSnapshot: p.priceSnapshot || null,
+          priceSnapshot: packagePricing.get(p.packageId)?.unitPrice.toFixed(2) ?? null,
           notes: p.notes || null,
           sortOrder: i,
         })),
@@ -241,43 +292,43 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Pakiety → OfferItems (dzień 1)
+    // Pakiety → OfferItems (dzień 1) — używamy już dociągniętych pakietów i policzonych cen
     for (const pkg of data.packages) {
-      const pkgInfo = await tx.package.findUnique({
-        where: { id: pkg.packageId },
-        include: {
-          offerType: { select: { name: true } },
-          sections: {
-            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-            include: {
-              items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
-            },
-          },
-        },
-      });
-      const composition = pkgInfo
-        ? {
-            packageName: pkgInfo.name,
-            offerTypeName: pkgInfo.offerType?.name || "",
-            sections: (pkgInfo.sections || []).map((s) => ({
-              name: s.name,
-              mode: s.selectionMode,
-              count: s.selectionCount,
-              items: (s.items || []).map((it) => it.name),
-            })),
-          }
-        : null;
+      const pkgInfo = pkgById.get(pkg.packageId);
+      const pricing = packagePricing.get(pkg.packageId);
+      if (!pkgInfo || !pricing) continue;
+
+      const composition = {
+        packageName: pkgInfo.name,
+        offerTypeName: pkgInfo.offerType?.name || "",
+        sections: (pkgInfo.sections || []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          mode: s.selectionMode,
+          count: s.selectionCount,
+          items: (s.items || []).map((it) => ({ id: it.id, name: it.name })),
+        })),
+        priceBreakdown: pricing.breakdown.sections.map((b) => ({
+          sectionId: b.sectionId,
+          sectionName: b.sectionName,
+          source: b.source,
+          unitPrice: b.unitPrice,
+          includedItems: b.includedItems,
+        })),
+        priceSource: pricing.breakdown.source,
+      };
+
       await tx.offerItem.create({
         data: {
           offerId: newOffer.id,
           day: 1,
           date: eventFrom,
           sortOrder: sortCounter++,
-          name: `${pkgInfo?.name || "Pakiet"} (${pkgInfo?.offerType?.name || ""})`,
-          description: composition ? JSON.stringify(composition) : null,
+          name: `${pkgInfo.name} (${pkgInfo.offerType?.name || ""})`,
+          description: JSON.stringify(composition),
           quantity: 1,
-          unitPrice: pkg.priceSnapshot || "0",
-          vatRate: 8,
+          unitPrice: pricing.unitPrice.toFixed(2),
+          vatRate: pricing.vatRate,
           sourceType: "PACKAGE",
           sourceId: pkg.packageId,
         },

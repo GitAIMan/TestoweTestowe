@@ -51,6 +51,7 @@ interface AgendaData {
   packageCompositions: Record<string, Composition>;
   selections: Array<{
     sectionId: string;
+    offerItemId: string | null;
     items: Array<{ menuItemId: string }>;
   }>;
   hotel: { hotelName: string; primaryColor: string; logoUrl?: string | null } | null;
@@ -70,7 +71,7 @@ export default function KuchniaPage({
   useEffect(() => {
     fetch(`/api/public/agenda/${token}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Nieprawidłowy lub wygasły link");
+        if (!res.ok) throw new Error("Ten link nie jest już aktywny.");
         return res.json();
       })
       .then(setData)
@@ -94,6 +95,9 @@ export default function KuchniaPage({
             <p className="text-destructive font-medium">
               {error || "Nie udało się załadować agendy"}
             </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Skontaktuj się z hotelem, aby uzyskać nowy link.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -104,10 +108,14 @@ export default function KuchniaPage({
   const offer = agenda.offer;
   const personCount = offer.adultsCount + offer.childrenCount;
 
-  // Mapa wyborów: sectionId → Set<menuItemId>
+  // Mapa wyborów: klucz "offerItemId:sectionId" → Set<menuItemId>
   const selectionMap = new Map<string, Set<string>>();
   for (const sel of selections) {
-    selectionMap.set(sel.sectionId, new Set(sel.items.map((i) => i.menuItemId)));
+    if (!sel.offerItemId) continue;
+    selectionMap.set(
+      `${sel.offerItemId}:${sel.sectionId}`,
+      new Set(sel.items.map((i) => i.menuItemId))
+    );
   }
 
   // Grupuj items po dniu
@@ -223,14 +231,14 @@ export default function KuchniaPage({
                       {comp && comp.sections.length > 0 && (
                         <CardContent className="space-y-3">
                           {comp.sections.map((sec) => {
-                            const selectedIds = selectionMap.get(sec.id);
+                            const selectedIds = selectionMap.get(`${item.id}:${sec.id}`);
                             const isChoose = sec.selectionMode === "CHOOSE_X_FROM_Y";
                             const displayItems = isChoose
                               ? sec.items.filter((i) => selectedIds?.has(i.id))
                               : sec.items;
                             if (displayItems.length === 0) {
                               return (
-                                <div key={sec.id} className="ml-1">
+                                <div key={`${item.id}-${sec.id}`} className="ml-1">
                                   <p className="text-xs font-medium text-muted-foreground mb-1">
                                     {sec.name}
                                     {isChoose && (

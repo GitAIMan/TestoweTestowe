@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Table,
   TableBody,
@@ -22,6 +23,7 @@ interface Contract {
   advanceAmount: string | null;
   signedAt: string | null;
   createdAt: string;
+  createdBy: { firstName: string; lastName: string } | null;
   offer: {
     clientName: string;
     eventName: string | null;
@@ -35,9 +37,15 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function UmowyPage() {
   const { data: contracts, mutate } = useSWR<Contract[]>("/api/contracts", fetcher);
+  const confirmDelete = useConfirm();
 
-  async function deleteContract(id: string) {
-    if (!confirm("Czy na pewno chcesz usunąć tę umowę?")) return;
+  async function deleteContract(id: string, clientName: string) {
+    const ok = await confirmDelete({
+      title: `Usunąć umowę "${clientName}"?`,
+      description: "Tej operacji nie da się cofnąć.",
+      confirmLabel: "Tak, usuń",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/contracts/${id}`, { method: "DELETE" });
       const data = await res.json();
@@ -72,6 +80,7 @@ export default function UmowyPage() {
                 <TableHead>Kwota oferty</TableHead>
                 <TableHead>Zaliczka</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Utworzył</TableHead>
                 <TableHead>Data utworzenia</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
@@ -104,6 +113,11 @@ export default function UmowyPage() {
                       {c.signedAt ? "Podpisana" : "Niepodpisana"}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {c.createdBy
+                      ? `${c.createdBy.firstName} ${c.createdBy.lastName}`
+                      : "—"}
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(c.createdAt).toLocaleDateString("pl-PL")}
                   </TableCell>
@@ -112,7 +126,7 @@ export default function UmowyPage() {
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => deleteContract(c.id)}
+                      onClick={() => deleteContract(c.id, c.clientFullName)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

@@ -10,6 +10,21 @@ async function touchAgendas(offerId: string) {
   });
 }
 
+async function touchOfferChanged(offerId: string, materialChange: boolean) {
+  await prisma.offer.update({
+    where: { id: offerId },
+    data: { lastItemsChangedAt: new Date() },
+  });
+  // Flagę aneksu ustawiamy TYLKO gdy zmiana jest merytoryczna
+  // (nie pusta/zerowa pozycja, nie samo przestawienie kolejności)
+  if (materialChange) {
+    await prisma.contract.updateMany({
+      where: { offerId, signedAt: { not: null } },
+      data: { needsAmendment: true },
+    });
+  }
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -61,6 +76,12 @@ export async function POST(
     },
   });
 
+  // Merytoryczna zmiana = pozycja z ceną > 0 albo pakiet (zawsze istotny)
+  const unitPriceDec = new Decimal(item.unitPrice.toString());
+  const materialChange =
+    item.sourceType === "PACKAGE" || unitPriceDec.gt(0);
+
+  await touchOfferChanged(id, materialChange);
   await touchAgendas(id);
 
   return NextResponse.json(item, { status: 201 });
@@ -90,6 +111,57 @@ export async function PUT(
     unitPrice: string;
     vatRate: number;
   }> = body.items;
+
+  // Zapamiętaj poprzednią kwotę brutto i stan pozycji (dla wykrycia zmian)
+  const prevOffer = await prisma.offer.findUnique({
+    where: { id },
+    select: { totalPrice: true },
+  });
+  const prevTotal = new Decimal(prevOffer?.totalPrice?.toString() ?? "0");
+
+  const prevItems = await prisma.offerItem.findMany({
+    where: { offerId: id },
+    select: {
+      id: true,
+      day: true,
+      sortOrder: true,
+      name: true,
+      description: true,
+      timeFrom: true,
+      timeTo: true,
+      hallId: true,
+      quantity: true,
+      unitPrice: true,
+      vatRate: true,
+    },
+  });
+  const prevMap = new Map(prevItems.map((p) => [p.id, p]));
+
+  // Wykryj czy są MERYTORYCZNE zmiany (bez sortOrder — drag&drop ≠ aneks)
+  const hasMaterialChanges = items.some((item) => {
+    const p = prevMap.get(item.id);
+    if (!p) return true;
+    return (
+      p.day !== item.day ||
+      p.name !== item.name ||
+      (p.description || "") !== (item.description || "") ||
+      (p.timeFrom || "") !== (item.timeFrom || "") ||
+      (p.timeTo || "") !== (item.timeTo || "") ||
+      (p.hallId || "") !== (item.hallId || "") ||
+      p.quantity !== item.quantity ||
+      !new Decimal(p.unitPrice.toString()).equals(new Decimal(item.unitPrice)) ||
+      p.vatRate !== item.vatRate
+    );
+  });
+
+  // Dla lastItemsChangedAt liczą się wszystkie zmiany (w tym sortOrder)
+  const hasAnyChanges = items.some((item) => {
+    const p = prevMap.get(item.id);
+    if (!p) return true;
+    return (
+      p.sortOrder !== item.sortOrder || hasMaterialChanges
+    );
+  });
 
   // Batch update
   await prisma.$transaction(
@@ -133,8 +205,22 @@ export async function PUT(
 
   await prisma.offer.update({
     where: { id },
-    data: { totalPrice: total.toFixed(2) },
+    data: {
+      totalPrice: total.toFixed(2),
+      ...(hasAnyChanges ? { lastItemsChangedAt: new Date() } : {}),
+    },
   });
+
+  // Flaga aneksu TYLKO przy merytorycznych zmianach (drag&drop nie liczy się)
+  if (hasMaterialChanges) {
+    await prisma.contract.updateMany({
+      where: {
+        offerId: id,
+        signedAt: { not: null },
+      },
+      data: { needsAmendment: true },
+    });
+  }
 
   await touchAgendas(id);
 
@@ -159,8 +245,23 @@ export async function DELETE(
     return NextResponse.json({ error: "Brak itemId" }, { status: 400 });
   }
 
+  // Pobierz pozycję PRZED usunięciem — żeby wiedzieć czy była merytoryczna
+  const itemToDelete = await prisma.offerItem.findUnique({
+    where: { id: itemId },
+    select: { unitPrice: true, sourceType: true },
+  });
+
   await prisma.offerItem.delete({ where: { id: itemId } });
 
+  // Merytoryczne usunięcie = miała cenę > 0 albo to pakiet
+  const unitPriceDec = itemToDelete
+    ? new Decimal(itemToDelete.unitPrice.toString())
+    : new Decimal(0);
+  const materialChange = itemToDelete
+    ? itemToDelete.sourceType === "PACKAGE" || unitPriceDec.gt(0)
+    : false;
+
+  await touchOfferChanged(id, materialChange);
   await touchAgendas(id);
 
   return NextResponse.json({ success: true });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod/v4";
+import { computeClientLockDate, DEFAULT_LOCK_DAYS_BEFORE } from "@/lib/agenda-lock";
 
 const tokenSchema = z.object({
   type: z.enum(["KLIENT_AGENDA", "KUCHNIA_AGENDA"]),
@@ -24,12 +25,16 @@ export async function POST(
     return NextResponse.json({ error: "Nieprawidłowy typ tokenu" }, { status: 400 });
   }
 
-  const agenda = await prisma.agenda.findUnique({ where: { id: agendaId } });
+  const agenda = await prisma.agenda.findUnique({
+    where: { id: agendaId },
+    include: {
+      offer: { select: { eventDateFrom: true } },
+    },
+  });
   if (!agenda) {
     return NextResponse.json({ error: "Agenda nie znaleziona" }, { status: 404 });
   }
 
-  // Sprawdź czy nie ma już aktywnego tokenu tego typu
   const existing = await prisma.agendaToken.findFirst({
     where: {
       agendaId,
@@ -42,10 +47,15 @@ export async function POST(
     return NextResponse.json(existing);
   }
 
+  const settings = await prisma.settings.findFirst();
+  const lockDays = settings?.agendaLockDaysBefore ?? DEFAULT_LOCK_DAYS_BEFORE;
+  const expiresAt = computeClientLockDate(agenda.offer.eventDateFrom, lockDays);
+
   const token = await prisma.agendaToken.create({
     data: {
       agendaId,
       type: parsed.data.type,
+      expiresAt,
     },
   });
 
