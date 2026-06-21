@@ -1230,13 +1230,15 @@ function ClientMessagesSection({ agendaId }: { agendaId: string }) {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Numer telefonu</label>
                         <Input
                           value={input}
                           onChange={(e) => setInput(e.target.value)}
                           placeholder="np. 600 100 200"
                           type="tel"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Numer, z którego zadzwonisz do klienta (zobaczy go u siebie).
+                        </p>
                         <div className="flex gap-2">
                           <Button
                             size="sm"

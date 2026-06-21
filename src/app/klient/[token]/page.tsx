@@ -2,7 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle, Clock, Lock, MapPin, Save, Info, MessageSquare, XCircle, Phone, Send } from "lucide-react";
+import { CheckCircle, Clock, Lock, MapPin, Save, Info, MessageSquare, XCircle, Phone, Send, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,6 +94,7 @@ export default function KlientPage({
 
   // Lokalne wybory klienta: sectionId → Set<menuItemId>
   const [localSelections, setLocalSelections] = useState<Record<string, Set<string>>>({});
+  const [limitReached, setLimitReached] = useState<Record<string, boolean>>({});
 
   // Wiadomości klienta
   type ClientMsg = {
@@ -184,16 +185,18 @@ export default function KlientPage({
       const current = new Set(prev[key] || []);
       if (current.has(menuItemId)) {
         current.delete(menuItemId);
+        setLimitReached((lr) => ({ ...lr, [key]: false }));
       } else {
         if (
           section.selectionMode === "CHOOSE_X_FROM_Y" &&
           section.selectionCount &&
           current.size >= section.selectionCount
         ) {
-          toast.error(`Możesz wybrać maksymalnie ${section.selectionCount} pozycji`);
+          setLimitReached((lr) => ({ ...lr, [key]: true }));
           return prev;
         }
         current.add(menuItemId);
+        setLimitReached((lr) => ({ ...lr, [key]: false }));
       }
       return { ...prev, [key]: current };
     });
@@ -472,6 +475,12 @@ export default function KlientPage({
                                       <span className="text-xs text-muted-foreground">
                                         ({selected.size}/{sec.selectionCount})
                                       </span>
+                                      {limitReached[key] && (
+                                        <span className="ml-auto flex items-center gap-1 text-xs font-medium text-red-600">
+                                          <AlertCircle className="h-3.5 w-3.5" />
+                                          Możesz wybrać maksymalnie {sec.selectionCount} pozycji
+                                        </span>
+                                      )}
                                     </>
                                   ) : (
                                     <Badge variant="outline" className="text-[10px]">
@@ -613,11 +622,11 @@ export default function KlientPage({
                     <div>
                       <div className="flex items-center gap-2 font-medium text-blue-900">
                         <Phone className="h-4 w-4" />
-                        Hotel oddzwoni
+                        Skontaktujemy się z Tobą telefonicznie
                       </div>
                       {c.responsePhone && (
                         <p className="mt-1">
-                          Numer: <strong>{c.responsePhone}</strong>
+                          Zadzwonimy z numeru: <strong>{c.responsePhone}</strong>
                         </p>
                       )}
                     </div>
@@ -693,7 +702,7 @@ export default function KlientPage({
                           {m.responseStatus === "CALL_BACK" && (
                             <>
                               <Phone className="h-4 w-4 text-blue-700" />
-                              <span className="text-blue-900">Zadzwonimy</span>
+                              <span className="text-blue-900">Skontaktujemy się z Tobą telefonicznie</span>
                             </>
                           )}
                         </div>
@@ -702,7 +711,7 @@ export default function KlientPage({
                         )}
                         {m.responseStatus === "CALL_BACK" && m.responsePhone && (
                           <p className="text-sm text-blue-900">
-                            Zadzwonimy na: <strong>{m.responsePhone}</strong>
+                            Zadzwonimy z numeru: <strong>{m.responsePhone}</strong>
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">

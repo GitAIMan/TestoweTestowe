@@ -5,6 +5,29 @@
 
 ---
 
+### Sesja 2026-06-21 — sesja testowa (nowy pracownik) + poprawki UX
+
+Sesja testowa: nowa osoba przeszła cały system jako pracownik. Wyłapane i poprawione realne problemy UX.
+
+**Wybory klienta — limit pozycji (widok klienta):**
+- `src/app/klient/[token]/page.tsx` — usunięty dublujący się komunikat. Wcześniej przy przekroczeniu limitu (np. 2 zupy zamiast 1) leciał `toast.error` na środku ekranu — przy szybkim klikaniu toasty się nakładały i wyglądało jak dwa komunikaty. Teraz: stały czerwony napis przy nagłówku sekcji (stan `limitReached` per sekcja, ikona `AlertCircle`), znika po odznaczeniu pozycji. Toast usunięty.
+
+**Prośba o kontakt telefoniczny — mylący tekst (klient + panel):**
+- `src/app/klient/[token]/page.tsx` — gdy hotel odpowiada „proszę o kontakt" i wpisuje numer, klient widział „Zadzwonimy na: <numer>" co sugerowało, że to JEGO numer. To numer HOTELU. Poprawione w 2 miejscach (wiadomości + propozycje wyborów): nagłówek „Skontaktujemy się z Tobą telefonicznie", treść „Zadzwonimy z numeru: <numer>".
+- `src/app/(panel)/agendy/[id]/page.tsx` — pole numeru po stronie hotelu (2 miejsca): usunięta etykieta, dodana szara podpowiedź pod polem „Numer, z którego zadzwonisz do klienta (zobaczy go u siebie)". Placeholder neutralny.
+
+**Kreator oferty — kalendarz w kroku 2 tylko do podglądu:**
+- `src/components/offers/step-event.tsx` — duży kalendarz przestał wybierać daty (był bug: po przypadkowym kliknięciu nie dało się odznaczyć dnia — `pickDate` bez logiki cofania). Usunięta funkcja `pickDate`. Klik w wolny dzień → nic (przycisk `disabled` dla wolnych). Klik w czerwony (zajęty) → pop-up szczegółów sal, BEZ przycisku „Wybierz ten dzień". Daty wpisuje się tylko w polach „Data od / Data do" (kalendarz podświetla wpisany zakres przez `inRange`). Dodany nagłówek „Podgląd zajętości — daty wpisz w polach wyżej", poprawiona legenda i hover.
+
+**Kreator oferty — walidacja e-maila na żywo (krok 1):**
+- Nowy helper `src/lib/validation.ts` — `isValidEmail` (pusty = dozwolony, bo e-mail opcjonalny; regex spójny z zod `.email()` na backendzie). Pierwszy wspólny helper walidacji w projekcie.
+- `src/components/offers/step-client.tsx` — e-mail walidowany w trakcie wpisywania: `aria-invalid` (czerwona obwódka z `input.tsx`) + czerwony tekst pod polem. Wcześniej zły mail (np. `kupa@lalalal`) przechodził przez cały kreator i dopiero backend zwracał 400 przy zapisie szkicu.
+- `src/app/(panel)/oferty/nowa/page.tsx` — `validateStep()` (krok 0) blokuje „Dalej" gdy mail niepusty i niepoprawny (toast).
+
+**Git:** zacommitowana + wypchnięta na `staging` cała zaległa praca z poprzednich sesji (aneksy, wiadomości, propozycje wyborów, kalendarz, powiadomienia — 64 pliki) — wcześniej wisiała tylko lokalnie od 2026-04-18.
+
+---
+
 ### Sesja 2026-04-19 — aneksy + propozycje wyborów klienta
 
 **Naprawa aneksów do umowy (puste aneksy + fałszywe flagi):**

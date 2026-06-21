@@ -20,6 +20,7 @@ import {
   type OfferFormData,
 } from "@/components/offers/offer-wizard-types";
 import { StepClient } from "@/components/offers/step-client";
+import { isValidEmail } from "@/lib/validation";
 import { StepEvent } from "@/components/offers/step-event";
 import { StepHalls } from "@/components/offers/step-halls";
 import { StepPackages } from "@/components/offers/step-packages";
@@ -67,8 +68,13 @@ export default function NowaOfertaPage() {
   }
 
   function validateStep(): string | null {
-    if (step === 0 && !data.clientName.trim()) {
-      return "Podaj imię i nazwisko klienta";
+    if (step === 0) {
+      if (!data.clientName.trim()) {
+        return "Podaj imię i nazwisko klienta";
+      }
+      if (!isValidEmail(data.clientEmail)) {
+        return "Podaj prawidłowy adres e-mail klienta (lub zostaw puste)";
+      }
     }
     if (step === 1) {
       if (!data.eventDateFrom || !data.eventDateTo) {

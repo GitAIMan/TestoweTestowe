@@ -146,16 +146,6 @@ export function StepEvent({ data, onChange }: Props) {
     return iso >= data.eventDateFrom && iso <= data.eventDateTo;
   }
 
-  function pickDate(iso: string) {
-    if (!data.eventDateFrom || (data.eventDateFrom && data.eventDateTo)) {
-      onChange({ eventDateFrom: iso, eventDateTo: "" });
-    } else if (iso < data.eventDateFrom) {
-      onChange({ eventDateFrom: iso, eventDateTo: data.eventDateFrom });
-    } else {
-      onChange({ eventDateTo: iso });
-    }
-  }
-
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Dane wydarzenia</h2>
@@ -204,8 +194,11 @@ export function StepEvent({ data, onChange }: Props) {
         </div>
       </div>
 
-      {/* Mini-kalendarz z zaznaczonymi zajętymi dniami */}
+      {/* Kalendarz — podgląd zajętości (nie wybiera dat) */}
       <div className="rounded-lg border border-border/60 bg-white dark:bg-card p-3">
+        <div className="text-xs font-semibold text-muted-foreground mb-2">
+          Podgląd zajętości — daty wpisz w polach wyżej
+        </div>
         <div className="flex items-center justify-between mb-2">
           <button
             type="button"
@@ -243,22 +236,18 @@ export function StepEvent({ data, onChange }: Props) {
               <button
                 key={i}
                 type="button"
-                disabled={isPast}
+                disabled={isPast || !occ}
                 onClick={() => {
-                  if (occ && dayObj) {
-                    setDayDialog(dayObj);
-                  } else {
-                    pickDate(c.date!);
-                  }
+                  if (occ && dayObj) setDayDialog(dayObj);
                 }}
                 title={occ ? `Zajęte: ${occ.label} · kliknij po szczegóły` : "Wolne"}
                 className={[
                   "aspect-square rounded text-xs font-semibold flex items-center justify-center relative transition",
-                  isPast && "opacity-30 cursor-not-allowed",
-                  occ && !selected && "bg-red-100 text-red-900 ring-1 ring-red-300 hover:bg-red-200",
-                  !occ && !selected && "hover:bg-muted text-foreground",
+                  isPast && "opacity-30",
+                  occ && !selected && "bg-red-100 text-red-900 ring-1 ring-red-300 hover:bg-red-200 cursor-pointer",
+                  !occ && !selected && "text-foreground cursor-default",
                   selected && !occ && "bg-primary text-primary-foreground ring-2 ring-primary shadow-sm",
-                  selected && occ && "bg-red-600 text-white ring-2 ring-red-700 shadow-sm",
+                  selected && occ && "bg-red-600 text-white ring-2 ring-red-700 shadow-sm cursor-pointer",
                 ].filter(Boolean).join(" ")}
               >
                 {c.day}
@@ -281,7 +270,7 @@ export function StepEvent({ data, onChange }: Props) {
           <span className="flex items-center gap-1">
             <span className="h-2.5 w-2.5 rounded-sm bg-primary" /> wybrane
           </span>
-          <span className="ml-auto">Kliknij dzień aby wybrać zakres</span>
+          <span className="ml-auto">Kliknij zajęty dzień po szczegóły</span>
         </div>
       </div>
 
@@ -443,16 +432,7 @@ export function StepEvent({ data, onChange }: Props) {
 
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button variant="outline" onClick={() => setDayDialog(null)}>
-                  Anuluj
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (dayDialog) pickDate(dayDialog.date);
-                    setDayDialog(null);
-                  }}
-                  disabled={dayDialog.freeHalls.length === 0}
-                >
-                  Wybierz ten dzień
+                  Zamknij
                 </Button>
               </div>
             </div>

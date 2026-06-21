@@ -171,6 +171,12 @@ Model `ClientMessage` (id, agendaId, content, createdAt + responseStatus/Reason/
 
 Typy: `KLIENT_ZMIANA_WYBORU`, `WIADOMOSC_OD_KLIENTA`, `OFERTA_ZAAKCEPTOWANA`, `OFERTA_ODRZUCONA`, `OFERTA_WYGASLA`.
 
+### 11. Walidacja pól formularzy — na żywo, nie dopiero na backendzie
+Helper `src/lib/validation.ts` → `isValidEmail(value)` (pusty = dozwolony bo opcjonalny; regex spójny z zod `.email()` na backendzie). Reużywać w nowych formularzach zamiast pisać od zera. Wzorzec błędu inline: `aria-invalid` na `<Input>` (komponent `src/components/ui/input.tsx` maluje czerwoną obwódkę) + czerwony `<p className="text-xs text-destructive">` pod polem. W kreatorach blokada przejścia w funkcji `validateStep()` (toast). Zasada: błędne dane łap jak najwcześniej (w trakcie wpisywania / przy „Dalej"), nie dopiero przy zapisie na końcu.
+
+### 12. Kalendarz w kroku 2 oferty — tylko podgląd zajętości
+Mini-kalendarz w `step-event.tsx` NIE wybiera dat (świadoma decyzja UX — wcześniej był bug bez odznaczania). Daty wpisuje się wyłącznie w polach „Data od / Data do". Kalendarz: czerwone = zajęte (klik → pop-up szczegółów sal, read-only), wpisany zakres podświetlony przez `inRange`. Wolne dni nieklikalne (`disabled`).
+
 ---
 
 ## Autentykacja i bezpieczeństwo
