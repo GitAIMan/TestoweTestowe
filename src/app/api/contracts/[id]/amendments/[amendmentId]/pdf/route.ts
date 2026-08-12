@@ -82,6 +82,7 @@ export async function GET(
       clientNip: contract.clientNip,
       clientPesel: contract.clientPesel,
       signedAt: contract.signedAt?.toISOString() || null,
+      createdAt: contract.createdAt.toISOString(),
     },
     offer: {
       eventName: contract.offer.eventName,

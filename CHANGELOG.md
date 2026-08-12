@@ -5,6 +5,27 @@
 
 ---
 
+### Sesja 2026-06-21 (cz. 2) — bezpieczne odrzucanie ofert, numer umowy na aneksie, mniejsze ceny w PDF
+
+**Odrzucanie oferty — potwierdzenie + przywracanie:**
+- Problem: przycisk „Odrzucona" działał od razu, bez pytania — łatwo kliknąć przez przypadek; po odrzuceniu znikały przyciski i oferta *wyglądała* na utraconą (choć to tylko zmiana statusu, nie hard-delete).
+- `prisma/schema.prisma` — nowe pole `Offer.statusBeforeRejection OfferStatus?` (przez `db push`). Pamięta status sprzed odrzucenia.
+- `src/app/api/offers/[id]/status/route.ts` — przy `ODRZUCONA` zapisuje `statusBeforeRejection` (gdy poprzedni był ROBOCZA/WYSLANA). Nowy sygnał `PRZYWROCONA` (nie status DB) — przywraca ofertę na status sprzed odrzucenia (`?? ROBOCZA`), czyści `statusBeforeRejection` i `respondedAt`. Waliduje, że obecny status to `ODRZUCONA`.
+- `src/app/(panel)/oferty/[id]/edycja/page.tsx` — „Odrzucona" pyta przez `confirmDialog` (variant destructive). Nowy przycisk „Przywróć ofertę" gdy status `ODRZUCONA`.
+- `src/app/(panel)/oferty/page.tsx` — na liście ofert przy odrzuconych ikona „Przywróć" (RotateCcw) obok kosza.
+
+**Aneks PDF — numer umowy:**
+- `src/components/contracts/contract-pdf.tsx` — wyeksportowana funkcja `contractCode` (ten sam numer co na umowie).
+- `src/components/contracts/amendment-pdf.tsx` — nagłówek aneksu: „Dotyczy umowy nr 260621-XXX z dnia ...". Dodane pole `contract.createdAt` do props.
+- `src/app/api/contracts/[id]/amendments/[amendmentId]/pdf/route.ts` — przekazuje `contract.createdAt`.
+
+**Ceny w PDF — zmniejszone wizualnie (oferta, umowa, aneks):**
+- `offer-pdf.tsx` / `contract-pdf.tsx`: `hlValue` 22→16, `totalAmount` 14→12, brutto w tabeli 11→10.
+- `amendment-pdf.tsx`: `totalAfterValue` 20→15, `totalBeforeValue`/`totalDeltaValue` 12→11.
+- Labele („Do zapłaty" itd.) bez zmian.
+
+---
+
 ### Sesja 2026-06-21 — sesja testowa (nowy pracownik) + poprawki UX
 
 Sesja testowa: nowa osoba przeszła cały system jako pracownik. Wyłapane i poprawione realne problemy UX.

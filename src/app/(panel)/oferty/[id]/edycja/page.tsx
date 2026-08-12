@@ -29,6 +29,7 @@ import {
   GripVertical,
   Check,
   MessageSquare,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -379,6 +380,33 @@ export default function OfferEditPage({
       mutateFull();
     } catch {
       toast.error("Błąd zmiany statusu");
+    }
+  }
+
+  async function rejectOffer() {
+    const ok = await confirmDialog({
+      title: "Oznaczyć ofertę jako odrzuconą?",
+      description:
+        "Oferta trafi do odrzuconych. Możesz ją przywrócić w każdej chwili — nic nie zostanie usunięte.",
+      confirmLabel: "Tak, odrzuć",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    changeStatus("ODRZUCONA");
+  }
+
+  async function restoreOffer() {
+    try {
+      const res = await fetch(`/api/offers/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PRZYWROCONA" }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Oferta przywrócona");
+      mutateFull();
+    } catch {
+      toast.error("Błąd przywracania oferty");
     }
   }
 
@@ -1307,11 +1335,22 @@ export default function OfferEditPage({
                   <CheckCircle className="mr-1 h-4 w-4" />
                   Zaakceptowana
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => changeStatus("ODRZUCONA")} className="opacity-70">
+                <Button size="sm" variant="outline" onClick={rejectOffer} className="opacity-70">
                   <XCircle className="mr-1 h-4 w-4" />
                   Odrzucona
                 </Button>
               </>
+            )}
+
+            {offer.status === "ODRZUCONA" && (
+              <Button
+                size="default"
+                onClick={restoreOffer}
+                className="animate-pulse ring-2 ring-primary/40 shadow-elevated"
+              >
+                <RotateCcw className="mr-1 h-4 w-4" />
+                Przywróć ofertę
+              </Button>
             )}
 
             {offer.status === "ZAAKCEPTOWANA" && !contract && (

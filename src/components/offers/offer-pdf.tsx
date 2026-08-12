@@ -326,7 +326,7 @@ const makeStyles = (accent: string) =>
     },
     hlValue: {
       fontFamily: "Fraunces",
-      fontSize: 22,
+      fontSize: 16,
       color: INK,
       fontWeight: 700,
       letterSpacing: -0.5,
@@ -448,7 +448,7 @@ const makeStyles = (accent: string) =>
     },
     rowBrutto: {
       fontFamily: "Fraunces",
-      fontSize: 11,
+      fontSize: 10,
       color: INK,
       fontWeight: 600,
     },
@@ -571,7 +571,7 @@ const makeStyles = (accent: string) =>
     totalRight: { flexDirection: "row", alignItems: "baseline" },
     totalAmount: {
       fontFamily: "Fraunces",
-      fontSize: 14,
+      fontSize: 12,
       color: "#ffffff",
       fontWeight: 600,
     },

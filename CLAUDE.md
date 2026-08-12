@@ -1,5 +1,7 @@
 # SaaS Hotele — Dokumentacja Projektu
 
+> ⏭️ **NASTĘPNA SESJA: gdy użytkownik powie „Zapoznaj się z projektem" — po przeczytaniu tego pliku otwórz `START_TUTAJ_WDROZENIE_RAILWAY.md` i zacznij od jego Punktu 0 (zwiad przed wdrożeniem na Railway).**
+>
 > **Historia zmian i log implementacji** — patrz `CHANGELOG.md` (nie jest auto-ładowany).
 > Ten plik zawiera tylko trwałe zasady, architekturę i wzorce. Trzymaj go zwięzłym.
 
@@ -239,7 +241,7 @@ Mini-kalendarz w `step-event.tsx` NIE wybiera dat (świadoma decyzja UX — wcze
 
 ### Migracje (kolejność)
 `add_offer_items` → `add_hall_and_timeto_to_offer_items` → `add_vat_rate_to_menu_models` → `add_change_tracking_timestamps` → `add_creator_and_cascade`.
-Od 2026-04-20: dalsze zmiany schematu przez `prisma db push` (dev) bez formalnych migracji — `AgendaToken.expiresAt/isRevoked` już istniały, `Contract.totalAtSigning` + `ContractAmendment` + `ContractItemSnapshot` + `ClientMessage` + `ClientMessageStatus` + `NotificationType.WIADOMOSC_OD_KLIENTA` dołożone przez `db push`.
+Od 2026-04-20: dalsze zmiany schematu przez `prisma db push` (dev) bez formalnych migracji — `AgendaToken.expiresAt/isRevoked` już istniały, `Contract.totalAtSigning` + `ContractAmendment` + `ContractItemSnapshot` + `ClientMessage` + `ClientMessageStatus` + `NotificationType.WIADOMOSC_OD_KLIENTA` dołożone przez `db push`. `Offer.statusBeforeRejection` (2026-06-21) — pamięta status sprzed odrzucenia, do przywracania ofert.
 
 ### Git
 - Repo: https://github.com/GitAIMan/TestoweTestowe

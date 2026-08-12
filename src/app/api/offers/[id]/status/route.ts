@@ -4,12 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod/v4";
 
 const statusSchema = z.object({
+  // PRZYWROCONA to sygnał (nie status w bazie) — przywraca odrzuconą ofertę
+  // na status sprzed odrzucenia.
   status: z.enum([
     "ROBOCZA",
     "WYSLANA",
     "ZAAKCEPTOWANA",
     "ODRZUCONA",
     "WYGASLA",
+    "PRZYWROCONA",
   ]),
 });
 
@@ -35,6 +38,25 @@ export async function PATCH(
     return NextResponse.json({ error: "Oferta nie znaleziona" }, { status: 404 });
   }
 
+  // Przywrócenie odrzuconej oferty na status sprzed odrzucenia
+  if (parsed.data.status === "PRZYWROCONA") {
+    if (existing.status !== "ODRZUCONA") {
+      return NextResponse.json(
+        { error: "Przywrócić można tylko odrzuconą ofertę" },
+        { status: 400 }
+      );
+    }
+    const offer = await prisma.offer.update({
+      where: { id },
+      data: {
+        status: existing.statusBeforeRejection ?? "ROBOCZA",
+        statusBeforeRejection: null,
+        respondedAt: null,
+      },
+    });
+    return NextResponse.json(offer);
+  }
+
   const updateData: Record<string, unknown> = {
     status: parsed.data.status,
   };
@@ -54,6 +76,14 @@ export async function PATCH(
     parsed.data.status === "ODRZUCONA"
   ) {
     updateData.respondedAt = new Date();
+  }
+
+  // Przy odrzuceniu zapamiętaj poprzedni status, aby móc przywrócić
+  if (
+    parsed.data.status === "ODRZUCONA" &&
+    (existing.status === "ROBOCZA" || existing.status === "WYSLANA")
+  ) {
+    updateData.statusBeforeRejection = existing.status;
   }
 
   const offer = await prisma.offer.update({

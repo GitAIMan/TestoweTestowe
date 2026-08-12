@@ -107,7 +107,7 @@ function formatPLN(n: number): string {
     .toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     .replace(/\u00a0/g, " ");
 }
-function contractCode(createdAt: string, clientName: string): string {
+export function contractCode(createdAt: string, clientName: string): string {
   const d = new Date(createdAt);
   const y = d.getFullYear().toString().slice(-2);
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -326,7 +326,7 @@ const makeStyles = (accent: string) =>
     },
     hlValue: {
       fontFamily: "Fraunces",
-      fontSize: 22,
+      fontSize: 16,
       color: INK,
       fontWeight: 700,
       letterSpacing: -0.5,
@@ -401,7 +401,7 @@ const makeStyles = (accent: string) =>
     },
     tblAmount: {
       fontFamily: "Fraunces",
-      fontSize: 11,
+      fontSize: 10,
       color: INK,
       fontWeight: 600,
       textAlign: "right",
@@ -472,7 +472,7 @@ const makeStyles = (accent: string) =>
     totalRight: { flexDirection: "row", alignItems: "baseline" },
     totalAmount: {
       fontFamily: "Fraunces",
-      fontSize: 14,
+      fontSize: 12,
       color: "#ffffff",
       fontWeight: 600,
     },

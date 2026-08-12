@@ -231,6 +231,7 @@ model Offer {
   sentAt        DateTime?
   expiresAt     DateTime?
   respondedAt   DateTime?
+  statusBeforeRejection OfferStatus?
   offerSentConfirmedAt DateTime?
   lastItemsChangedAt   DateTime?
   createdAt     DateTime    @default(now())

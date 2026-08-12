@@ -8,6 +8,7 @@ import {
 } from "@react-pdf/renderer";
 import path from "path";
 import type { AmendmentDiff } from "@/lib/amendment-diff";
+import { contractCode } from "@/components/contracts/contract-pdf";
 
 const fontDir = path.join(process.cwd(), "node_modules", "@expo-google-fonts");
 
@@ -72,6 +73,7 @@ interface AmendmentPdfProps {
     clientNip: string | null;
     clientPesel: string | null;
     signedAt: string | null;
+    createdAt: string;
   };
   offer: {
     eventName: string | null;
@@ -228,12 +230,12 @@ export function AmendmentPdf({
     },
     totalLeft: { flexDirection: "column" },
     totalBeforeLabel: { fontSize: 9, color: "#d3cbc7", letterSpacing: 1.5, textTransform: "uppercase" },
-    totalBeforeValue: { fontFamily: "Fraunces", fontSize: 12, color: "#e8e0dc", textDecoration: "line-through" },
+    totalBeforeValue: { fontFamily: "Fraunces", fontSize: 11, color: "#e8e0dc", textDecoration: "line-through" },
     totalDeltaLabel: { fontSize: 9, color: "#d3cbc7", letterSpacing: 1.5, textTransform: "uppercase", marginTop: 6 },
-    totalDeltaValue: { fontFamily: "Fraunces", fontSize: 12 },
+    totalDeltaValue: { fontFamily: "Fraunces", fontSize: 11 },
     totalRight: { alignItems: "flex-end" },
     totalAfterLabel: { fontSize: 9, color: "#d3cbc7", letterSpacing: 1.5, textTransform: "uppercase" },
-    totalAfterValue: { fontFamily: "Fraunces", fontSize: 20, color: "#ffffff", fontWeight: 700 },
+    totalAfterValue: { fontFamily: "Fraunces", fontSize: 15, color: "#ffffff", fontWeight: 700 },
     // Signatures
     signRow: {
       flexDirection: "row",
@@ -317,7 +319,8 @@ export function AmendmentPdf({
           <Text style={s.eyebrow}>Aneks nr {amendment.number}</Text>
           <Text style={s.title}>Aneks do umowy</Text>
           <Text style={s.subtitle}>
-            Do umowy z dnia {contract.signedAt ? formatDate(contract.signedAt) : "—"}. Wystawiony {formatDate(amendment.createdAt)}.
+            Dotyczy umowy nr {contractCode(contract.createdAt, contract.clientFullName)}
+            {contract.signedAt ? ` z dnia ${formatDate(contract.signedAt)}` : ""}. Wystawiony {formatDate(amendment.createdAt)}.
           </Text>
           {offer.eventName && (
             <Text style={s.subtitle}>Wydarzenie: {offer.eventName} · {formatDate(offer.eventDateFrom)}</Text>

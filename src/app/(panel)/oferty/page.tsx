@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,21 @@ export default function OfertyPage() {
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Nie udało się usunąć oferty");
+    }
+  }
+
+  async function restoreOffer(id: string) {
+    try {
+      const res = await fetch(`/api/offers/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PRZYWROCONA" }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Oferta przywrócona");
+      mutate();
+    } catch {
+      toast.error("Nie udało się przywrócić oferty");
     }
   }
 
@@ -193,14 +208,27 @@ export default function OfertyPage() {
                       {new Date(offer.createdAt).toLocaleDateString("pl-PL")}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => deleteOffer(offer.id, offer.clientName)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {offer.status === "ODRZUCONA" && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-primary hover:text-primary"
+                            title="Przywróć ofertę"
+                            onClick={() => restoreOffer(offer.id)}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => deleteOffer(offer.id, offer.clientName)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
