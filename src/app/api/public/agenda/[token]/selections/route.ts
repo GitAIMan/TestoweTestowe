@@ -57,10 +57,42 @@ export async function PUT(
   }
 
   const body = await req.json();
-  const selections: SelectionInput[] = body.selections;
+  const rawSelections: SelectionInput[] = body.selections;
 
-  if (!Array.isArray(selections)) {
+  if (!Array.isArray(rawSelections)) {
     return NextResponse.json({ error: "Nieprawidłowe dane" }, { status: 400 });
+  }
+
+  // Whitelist: tylko offerItem/section/menuItem faktycznie należące do TEJ oferty
+  const validOfferItems = await prisma.offerItem.findMany({
+    where: { offerId: agenda.offer.id, sourceType: "PACKAGE" },
+    select: { id: true, sourceId: true },
+  });
+  const packageIdByOfferItemId = new Map(
+    validOfferItems.map((i) => [i.id, i.sourceId])
+  );
+  const packageIds = Array.from(
+    new Set(validOfferItems.map((i) => i.sourceId).filter((id): id is string => Boolean(id)))
+  );
+  const validSections = packageIds.length
+    ? await prisma.section.findMany({
+        where: { packageId: { in: packageIds } },
+        select: { id: true, packageId: true, items: { select: { id: true } } },
+      })
+    : [];
+  const sectionById = new Map(validSections.map((s) => [s.id, s]));
+
+  const selections: SelectionInput[] = [];
+  for (const sel of rawSelections) {
+    if (!sel.offerItemId) continue;
+    const packageId = packageIdByOfferItemId.get(sel.offerItemId);
+    if (!packageId) continue; // offerItemId nie należy do tej oferty
+    const section = sectionById.get(sel.sectionId);
+    if (!section || section.packageId !== packageId) continue; // sectionId nie pasuje do pakietu tej pozycji
+
+    const validItemIds = new Set(section.items.map((i) => i.id));
+    const menuItemIds = (sel.menuItemIds || []).filter((id) => validItemIds.has(id));
+    selections.push({ ...sel, menuItemIds });
   }
 
   // Pobierz aktualne wybory klienta (do porównania: gdzie faktycznie zmienia?)

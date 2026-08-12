@@ -166,6 +166,12 @@ export async function GET(
       }
     : null;
 
+  // Kuchnia dostaje tylko harmonogram i wybory — bez cen i bez korespondencji z klientem
+  const isKitchen = agendaToken.type === "KUCHNIA_AGENDA";
+  const offerItemsOut = isKitchen
+    ? offerItems.map(({ unitPrice: _unitPrice, vatRate: _vatRate, ...rest }) => rest)
+    : offerItems;
+
   // Remap offerItems → items dla frontendów
   const { offerItems: _omit, ...offerRest } = agenda.offer;
   void _omit;
@@ -173,7 +179,7 @@ export async function GET(
     ...agenda,
     offer: {
       ...offerRest,
-      items: offerItems,
+      items: offerItemsOut,
     },
   };
 
@@ -181,7 +187,7 @@ export async function GET(
     agenda: agendaOut,
     packageCompositions,
     selections,
-    selectionChanges: selectionChangesOut,
+    selectionChanges: isKitchen ? [] : selectionChangesOut,
     isLocked,
     tokenType: agendaToken.type,
     hotel,

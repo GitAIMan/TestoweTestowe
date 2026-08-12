@@ -10,7 +10,9 @@
     "db:migrate": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
     "db:seed": "npx prisma db seed",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -62,6 +64,7 @@
     "eslint-config-next": "^16.2.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.10"
   }
 }
