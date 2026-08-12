@@ -5,6 +5,18 @@
 
 ---
 
+### Sesja 2026-08-12 — audyt bezpieczeństwa + pierwsze testy jednostkowe
+
+**Audyt bezpieczeństwa (52 endpointy API):** żaden endpoint pracowniczy nie brakuje sprawdzenia logowania. Znalezione i naprawione 2 luki w publicznych endpointach tokenowych (klient/kuchnia):
+- `src/app/api/public/agenda/[token]/route.ts` — kuchnia dostawała te same dane co klient (ceny `unitPrice`/`vatRate`, historię wiadomości/propozycji). Naprawa: sprawdzenie `agendaToken.type`, dla `KUCHNIA_AGENDA` obcięcie cen i `selectionChanges`.
+- `src/app/api/public/agenda/[token]/selections/route.ts` — zapis wyborów klienta ufał ID (`offerItemId`/`sectionId`/`menuItemId`) z body żądania bez weryfikacji przynależności do oferty spod tokenu (IDOR). Naprawa: whitelist z bazy, niepasujące wpisy odrzucane po cichu.
+- Zweryfikowane na żywo (serwer dev + realne dane z bazy): kuchnia nie dostaje już cen, klient bez zmian; próba podstawienia cudzych ID w selections — odrzucona, legalny wpis przechodzi z odciętym podstawionym `menuItemId`.
+- Znalezione, nienaprawione na razie (średni/niski priorytet): tokeny CUID przewidywalne (powinny być losowe `crypto.randomBytes`), brak rate-limitingu na publicznych endpointach.
+
+**Pierwsze testy jednostkowe:** dodano Vitest (`npm run test`), 36 testów dla `package-pricing.ts`, `amendment-diff.ts`, `agenda-lock.ts`, `validation.ts` — cała logika liczenia cen pakietów, aneksów i blokady 14-dniowej. Wcześniej zero testów automatycznych w projekcie.
+
+---
+
 ### Sesja 2026-06-21 (cz. 2) — bezpieczne odrzucanie ofert, numer umowy na aneksie, mniejsze ceny w PDF
 
 **Odrzucanie oferty — potwierdzenie + przywracanie:**

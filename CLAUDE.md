@@ -187,12 +187,20 @@ Mini-kalendarz w `step-event.tsx` NIE wybiera dat (świadoma decyzja UX — wcze
 - NextAuth rozdzielony: `auth.config.ts` (Edge-safe, bez Prisma, do middleware) + `auth.ts` (z Prisma, do API)
 - Tokeny klienta/kuchni: `expiresAt = eventDateFrom − 14 dni` (helper `src/lib/agenda-lock.ts`), ręczne unieważnianie przyciskiem „Unieważnij" w `/agendy/[id]` → `POST /api/agendas/[id]/tokens/[tokenId]/revoke`. Po revoke nowy link na osobne kliknięcie „Wygeneruj link".
 
+### Publiczne endpointy tokenowe (klient/kuchnia) — zasady po audycie
+- **Zawsze sprawdzać `agendaToken.type`** przed zwróceniem danych — `KUCHNIA_AGENDA` nie może dostać cen (`unitPrice`/`vatRate`) ani `selectionChanges`/wiadomości klienta (`src/app/api/public/agenda/[token]/route.ts`).
+- **Nigdy nie ufać ID z body żądania** w endpointach po tokenie — każdy `offerItemId`/`sectionId`/`menuItemId` przysłany przez klienta musi być zweryfikowany, że faktycznie należy do oferty spod tego tokenu, zanim trafi do zapisu (wzorzec w `src/app/api/public/agenda/[token]/selections/route.ts`). Niepasujące wpisy odrzucać po cichu (pomijać), nie 500.
+
 ---
 
 ## Wymagania techniczne
 
 ### Precyzja finansowa
 - `decimal.js` wszędzie. Błędy groszowe niedopuszczalne.
+
+### Testy jednostkowe
+- Vitest (`npm run test`). Pokryte: `src/lib/package-pricing.ts`, `amendment-diff.ts`, `agenda-lock.ts`, `validation.ts` — cała logika liczenia cen/aneksów/blokad, bez dotykania bazy.
+- Nowa czysta funkcja licząca pieniądze, blokady dat lub diffy → dopisz test obok niej (`*.test.ts`), wzoruj się na istniejących.
 
 ### Dostępność sal
 - Real-time check w kreatorze (filtr po pojemności: sale za małe wyciszone + `disabled`).
